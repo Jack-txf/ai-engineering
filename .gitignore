@@ -44,3 +44,4 @@ build/
 ### Mac OS ###
 .DS_Store
 /log/output.log
+/.claude/settings.local.json
