@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
@@ -107,6 +108,7 @@ public class TikaDocumentParser implements DocumentParser {
              * 超时控制在上层 DocumentParserService 中通过 Future.get(timeout) 实现，
              * 此处无需重复处理超时。
              */
+            // TikaInputStream tikaInputStream = TikaInputStream.get(inputStream);
             autoDetectParser.parse(inputStream, contentHandler, metadata, parseContext);
 
             // ── 步骤4：提取文本内容 ───────────────────────────────────

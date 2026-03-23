@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>21</java.version>
         <!-- Apache Tika：全格式文档解析 -->
-        <tika.version>2.9.2</tika.version>
+        <tika.version>3.2.3</tika.version>
         <!-- PDFBox：PDF 底层解析（Tika 依赖） -->
         <pdfbox.version>3.0.3</pdfbox.version>
         <!-- POI：Office 格式解析（Tika 依赖） -->
@@ -61,7 +61,7 @@
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-parsers-standard-package</artifactId>
             <version>${tika.version}</version>
-            <!-- 排除 Tika 自带的 slf4j，使用 Spring Boot 统一的 logback -->
+            <!-- 排除冲突依赖 -->
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -82,6 +82,7 @@
             <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
         </dependency>
+
 
         <!-- ==================== 工具类 ==================== -->
         <dependency>

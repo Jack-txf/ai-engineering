@@ -41,6 +41,9 @@ rag:
       - application/vnd.ms-powerpoint                                              # ppt
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet         # xlsx
       - application/vnd.ms-excel                                                   # xls
+      - application/vnd.ms-spreadsheetml # xls
+      - text/csv # csv
+      - text/x-web-markdown   # markdown
       - text/plain
       - text/html
       - text/markdown
