@@ -3,7 +3,7 @@ package com.feng.rag.datasource.util;
 import java.util.regex.Pattern;
 
 /**
- * 文本清洗工具类
+ * 文本清洗工具类-------【对应清洗步骤一：确定规则清洗，文档内容解析后清洗一遍】
  */
 public final class TextCleanupUtils {
 

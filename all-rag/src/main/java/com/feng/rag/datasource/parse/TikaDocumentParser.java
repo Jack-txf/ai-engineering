@@ -113,7 +113,7 @@ public class TikaDocumentParser implements DocumentParser {
 
             // ── 步骤4：提取文本内容 ───────────────────────────────────
             String rawContent = contentHandler.toString();
-            // ── 步骤5：文本清洗 ───────────────────────────────────────
+            // ── 步骤5：文本清洗 ─────────────────────清洗第一层：确定性规则清洗──────
             String cleanedContent = TextCleanupUtils.clean(rawContent);
             // ── 步骤6：提取元数据 ─────────────────────────────────────
             Map<String, String> metadataMap = extractMetadata(metadata);
