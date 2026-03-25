@@ -48,15 +48,6 @@
             <artifactId>tika-core</artifactId>
             <version>${tika.version}</version>
         </dependency>
-        <!--
-            tika-parsers-standard-package：标准解析器包，包含：
-            - PDF（基于 PDFBox）
-            - Office（基于 POI：docx/xlsx/pptx/doc/xls/ppt）
-            - TXT/HTML/XML/Markdown
-            - 图片元数据（EXIF/IPTC）
-            - 音视频元数据
-            注意：此包体积较大（约 80MB），生产可按需拆分引入
-        -->
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-parsers-standard-package</artifactId>
@@ -114,6 +105,30 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- ==================== 模型 ==================== -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>5.3.2</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-sse</artifactId>
+            <version>5.3.2</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+
     </dependencies>
 
     <dependencyManagement>

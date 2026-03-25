@@ -1,6 +1,8 @@
 # All-RAG
 
 RAG (Retrieval-Augmented Generation) 数据源接入模块 —— 统一接收多种格式文档，提取纯文本内容供下游向量化使用。
+目录说明：【chunking-test】是测试分块的测试项目，初始的三种分块策略可以看这个里面。
+
 
 ## 项目概述
 

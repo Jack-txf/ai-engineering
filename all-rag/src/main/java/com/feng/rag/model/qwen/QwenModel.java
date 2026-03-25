@@ -1,0 +1,34 @@
+package com.feng.rag.model.qwen;
+
+import com.feng.rag.controller.R;
+import com.feng.rag.model.AbstractModel;
+import com.feng.rag.model.config.GlobalModelProperties;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * @Description: 千问厂商
+ * @Author: txf
+ * @Date: 2026/3/24
+ */
+public class QwenModel extends AbstractModel {
+
+    public static final String QWEN = "qwen";
+
+    private GlobalModelProperties.ProviderConfig providerConfig;
+    public QwenModel( GlobalModelProperties.ProviderConfig providerConfig) {
+        this.providerConfig = providerConfig;
+    }
+
+    @Override
+    public R chatSync(List<Message> messages) {
+        return R.ok();
+    }
+
+    @Override
+    public SseEmitter chatStream(List<Message> messages) {
+        return null;
+    }
+}
