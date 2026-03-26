@@ -29,7 +29,7 @@ public class ChunkingOptions {
      * 小于此值的分块将被合并或丢弃
      */
     @Builder.Default
-    private int minChunkSize = 100;
+    private int minChunkSize = 50;
 
     /**
      * 最大分块大小（字符数）
