@@ -50,6 +50,45 @@ rag:
       - application/json
       - text/xml
       - application/xml
+# =====================================================
+# RAG 分块模块配置
+# =====================================================
+  chunk:
+    enabled: true
+    # 默认分块策略: fixed_size | paragraph | recursive | semantic | sliding_window
+    default-strategy: recursive
+    # 全局默认配置
+    defaults:
+      target-chunk-size: 500
+      min-chunk-size: 100
+      max-chunk-size: 1000
+      overlap-size: 50
+      respect-paragraph-boundaries: true
+      respect-sentence-boundaries: true
+      enable-quality-filter: true
+      min-quality-score: 0.3
+      extract-keywords: false
+    # 按文档类型的差异化配置
+    type-overrides:
+      # Markdown 文件使用递归分块（结构化更好）
+      "text/markdown":
+        strategy: recursive
+        target-chunk-size: 400
+        respect-paragraph-boundaries: true
+      # PDF 使用段落分块
+      "application/pdf":
+        strategy: paragraph
+        target-chunk-size: 600
+        respect-paragraph-boundaries: true
+      # 代码文件使用固定大小分块
+      "application/json":
+        strategy: fixed_size
+        target-chunk-size: 800
+        respect-paragraph-boundaries: false
+      "text/plain":
+        strategy: semantic
+        target-chunk-size: 500
+        extract-keywords: true
 
 # 模型配置
 ai-model:
