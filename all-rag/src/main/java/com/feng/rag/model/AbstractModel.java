@@ -1,6 +1,7 @@
 package com.feng.rag.model;
 
 import com.feng.rag.controller.R;
+import com.feng.rag.model.embedding.EmbeddingResponse;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -23,7 +24,7 @@ public abstract class AbstractModel {
     }
 
     //----------------------------------- Embedding部分 -----------------------------------
-
+    public abstract EmbeddingResponse embedding(List<String> text);
 
     //----------------------------------- Rerank部分 -----------------------------------
 

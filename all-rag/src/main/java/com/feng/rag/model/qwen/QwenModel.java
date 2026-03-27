@@ -3,6 +3,7 @@ package com.feng.rag.model.qwen;
 import com.feng.rag.controller.R;
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.config.GlobalModelProperties;
+import com.feng.rag.model.embedding.EmbeddingResponse;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -29,6 +30,11 @@ public class QwenModel extends AbstractModel {
 
     @Override
     public SseEmitter chatStream(List<Message> messages) {
+        return null;
+    }
+
+    @Override
+    public EmbeddingResponse embedding(List<String> text) {
         return null;
     }
 }
