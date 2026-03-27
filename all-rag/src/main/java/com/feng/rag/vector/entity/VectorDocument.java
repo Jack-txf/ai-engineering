@@ -25,7 +25,7 @@ public class VectorDocument {
     /**
      * 文档唯一 ID
      */
-    private String id;
+    private String doc_id;
 
     /**
      * 文档内容（原始文本）
@@ -40,7 +40,7 @@ public class VectorDocument {
     /**
      * 文档来源（如文件名、URL等）
      */
-    private String source;
+    // private String source;
 
     /**
      * 分块索引（如果是分块后的内容）

@@ -71,9 +71,9 @@ rag:
       # 默认集合配置
       collection:
         name: rag_documents
-        dimension: 1536
+        dimension: 2560
         vector-field: vector
-        id-field: id
+        id-field: doc_id
         content-field: content
         metadata-field: metadata
         shards-num: 1

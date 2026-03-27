@@ -21,7 +21,7 @@ public class ChunkingProperties {
      * 默认分块策略
      */
     // 分块策略: fixed_size | paragraph | recursive | semantic | sliding_window
-    private String defaultStrategy = "paragraph";
+    private String defaultStrategy = "recursive";
 
     /**
      * 是否启用分块

@@ -2,6 +2,7 @@ package com.feng.rag.model.siliconflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.feng.rag.controller.R;
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.config.GlobalModelProperties;
@@ -40,7 +41,8 @@ public class SiliconfowModel extends AbstractModel {
 
     public SiliconfowModel(GlobalModelProperties.ProviderConfig providerConfig) {
         this.providerConfig = providerConfig;
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper()
+                .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
 
         // 创建OkHttpClient
         this.siliconfowClient = new OkHttpClient.Builder()
@@ -142,6 +144,7 @@ public class SiliconfowModel extends AbstractModel {
                 .header("Authorization", "Bearer " + providerConfig.getApiKey())
                 .post(body)
                 .build();
+
         Call call = siliconfowClient.newCall(request);
         try {
             Response response = call.execute();

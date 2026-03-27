@@ -63,7 +63,7 @@ public class MilvusProperties {
         /**
          * 向量维度
          */
-        private int dimension = 1536;
+        private int dimension = 2560;
 
         /**
          * 向量字段名称
@@ -73,7 +73,7 @@ public class MilvusProperties {
         /**
          * ID 字段名称
          */
-        private String idField = "id";
+        private String idField = "doc_id";
 
         /**
          * 内容字段名称

@@ -27,5 +27,5 @@ public class CreateCollectionRequest {
      * 向量维度（可选，不传使用默认配置）
      */
     @Min(value = 1, message = "维度必须大于0")
-    private Integer dimension;
+    private Integer dimension = 256;
 }
