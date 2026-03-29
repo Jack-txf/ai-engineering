@@ -1,4 +1,4 @@
-package com.feng.rag.retrieval.model;
+package com.feng.rag.retrieval.obj;
 
 import lombok.Getter;
 

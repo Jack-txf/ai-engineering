@@ -1,8 +1,8 @@
 package com.feng.rag.retrieval.input;
 
-import com.feng.rag.retrieval.model.DialogueTurn;
-import com.feng.rag.retrieval.model.ProcessedQuery;
-import com.feng.rag.retrieval.model.UserIntent;
+import com.feng.rag.retrieval.obj.DialogueTurn;
+import com.feng.rag.retrieval.obj.ProcessedQuery;
+import com.feng.rag.retrieval.obj.UserIntent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.util.List;

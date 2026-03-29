@@ -1,13 +1,10 @@
 package com.feng.rag.controller;
 
 import com.feng.rag.retrieval.RetrievalService;
-import com.feng.rag.retrieval.model.ProcessedQuery;
-import com.feng.rag.vector.entity.SearchResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 /**

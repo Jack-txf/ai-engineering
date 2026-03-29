@@ -2,8 +2,8 @@ package com.feng.rag.retrieval;
 
 import com.feng.rag.model.ModelFactory;
 import com.feng.rag.retrieval.input.UserInputProcessor;
-import com.feng.rag.retrieval.model.DialogueTurn;
-import com.feng.rag.retrieval.model.ProcessedQuery;
+import com.feng.rag.retrieval.obj.DialogueTurn;
+import com.feng.rag.retrieval.obj.ProcessedQuery;
 import com.feng.rag.vector.service.VectorService;
 import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.extern.slf4j.Slf4j;

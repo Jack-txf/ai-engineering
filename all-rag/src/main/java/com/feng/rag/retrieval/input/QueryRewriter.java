@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.feng.rag.controller.R;
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.ModelFactory;
-import com.feng.rag.retrieval.model.DialogueTurn;
+import com.feng.rag.retrieval.obj.DialogueTurn;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import java.util.List;
