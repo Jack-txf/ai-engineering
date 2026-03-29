@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.util.Map;
 
 /**
  * 向量搜索结果
@@ -20,24 +20,24 @@ import java.util.List;
 public class SearchResult {
 
     /**
-     * 文档 ID
+     * 文档ID
      */
-    private String id;
+    private String docId;
 
     /**
-     * 文档内容
+     * 文本内容
      */
     private String content;
 
     /**
-     * 相似度得分（距离）
+     * 相似度分数
      */
-    private double score;
+    private Float score;
 
     /**
-     * 文档来源
+     * 元数据
      */
-    private String source;
+    private Map<String, Object> metadata;
 
     /**
      * 分块索引
@@ -45,24 +45,12 @@ public class SearchResult {
     private Integer chunkIndex;
 
     /**
-     * 元数据
+     * 组织ID
      */
-    private List<MetadataEntry> metadata;
+    private String orgId;
 
     /**
-     * 文档标题
+     * 距离（Milvus返回的原始距离值）
      */
-    private String title;
-
-    /**
-     * 元数据条目
-     */
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class MetadataEntry {
-        private String key;
-        private String value;
-    }
+    private Float distance;
 }

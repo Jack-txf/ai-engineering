@@ -12,21 +12,26 @@ import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.siliconflow.SiliconfowModel;
 import com.feng.rag.vector.config.MilvusProperties;
 import com.feng.rag.vector.exception.MilvusException;
-import com.feng.rag.vector.service.MilvusService;
+import com.feng.rag.vector.service.VectorService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.common.ConsistencyLevel;
 import io.milvus.v2.common.DataType;
 import io.milvus.v2.common.IndexParam;
 import io.milvus.v2.service.collection.CollectionInfo;
 import io.milvus.v2.service.collection.request.*;
 import io.milvus.v2.service.collection.response.ListCollectionsResp;
 import io.milvus.v2.service.vector.request.InsertReq;
+import io.milvus.v2.service.vector.request.SearchReq;
+import io.milvus.v2.service.vector.request.data.FloatVec;
+import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -36,9 +41,9 @@ import java.util.*;
  * @since 2026/3/26
  */
 @Slf4j
-@Service
+@Service("milvusService")
 @RequiredArgsConstructor
-public class MilvusServiceImpl implements MilvusService {
+public class MilvusServiceImpl implements VectorService {
 
     private final MilvusClientV2 milvusClient;
     private final MilvusProperties properties;
@@ -336,5 +341,65 @@ public class MilvusServiceImpl implements MilvusService {
         }
     }
 
+    /**
+     * 向量检索
+     *
+     * @param query      查询文本
+     * @param topK       返回结果数量
+     * @param orgId      组织ID（多租户隔离）
+     * @param collection 集合名称（可选，默认使用配置中的）
+     * @return 搜索结果列表
+     */
+    @Override
+    public SearchResp vectorSearch(String query, Integer topK, String orgId, String collection) {
+        String collectionName = (collection != null && !collection.isEmpty())
+                ? collection
+                : properties.getCollection().getName();
+        int limit = (topK != null && topK > 0) ? topK : 10;
+        String targetOrgId = (orgId != null && !orgId.isEmpty()) ? orgId : "default";
+        log.info("[vectorSearch] 开始向量检索: query={}, topK={}, collection={}",
+                query.substring(0, Math.min(query.length(), 50)), limit, collectionName);
+        try {
+            // 1. 向量化查询文本
+            EmbeddingResponse embeddingRes = modelFactory
+                    .getModel(SiliconfowModel.SILICONFLOW)
+                    .embedding(List.of(query));
+            if (embeddingRes.getData() == null || embeddingRes.getData().isEmpty()) {
+                log.error("[vectorSearch] 查询文本向量化失败");
+                return null;
+            }
+            List<Float> queryVector = embeddingRes.getData()
+                    .getFirst().getEmbedding();
+            // 2. 执行 Milvus 向量搜索
+            return executeVectorSearch(queryVector, limit, targetOrgId, collectionName);
+        } catch (Exception e) {
+            log.error("[vectorSearch] 向量检索失败", e);
+            throw new MilvusException("VECTOR_SEARCH", "向量检索失败: " + e.getMessage(), e);
+        }
+    }
 
+    /**
+     * 执行 Milvus 向量搜索
+     */
+    private SearchResp executeVectorSearch(List<Float> queryVector, int topK,
+                                                    String orgId, String collectionName) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("metric_type", "COSINE");
+        params.put("nprobe", 50);
+
+        return milvusClient.search(SearchReq.builder()
+                .collectionName(collectionName)
+                .annsField(properties.getCollection().getVectorField())
+                .data(Collections.singletonList(new FloatVec(queryVector)))
+                .topK(topK)
+                .searchParams(params)
+                .consistencyLevel(ConsistencyLevel.EVENTUALLY)
+                .outputFields(List.of(properties.getCollection().getIdField(),
+                        "chunk_index",
+                        properties.getCollection().getContentField(),
+                        properties.getCollection().getMetadataField(),
+                        "org_id"
+                        ))
+                .build());
+    }
 }

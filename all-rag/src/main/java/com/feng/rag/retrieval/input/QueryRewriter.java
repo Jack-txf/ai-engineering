@@ -100,10 +100,8 @@ public class QueryRewriter {
      */
     private String generateHistory() {
         return """
-                用户：你知道清华大学吗？
-                AI：是的，我知道，清华大学是很牛逼的学校。
-                用户：那这个大学的录取分数线是多少呢？
-                AI：这个要看具体情况吧，一般是要接近七百分的样子咯，才算是稳稳的！
+                用户：介绍一下Kafka呗！
+                AI：Kafka 是一个分布式的基于发布 / 订阅模式的消息队列（Message Queue），主要应用于大数据实时处理领域。
                 """;
     }
 

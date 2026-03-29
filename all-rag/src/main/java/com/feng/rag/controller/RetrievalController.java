@@ -1,8 +1,8 @@
 package com.feng.rag.controller;
 
 import com.feng.rag.retrieval.RetrievalService;
-import com.feng.rag.retrieval.model.DialogueTurn;
 import com.feng.rag.retrieval.model.ProcessedQuery;
+import com.feng.rag.vector.entity.SearchResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -36,64 +36,30 @@ public class RetrievalController {
         if (sessionId == null || sessionId.isEmpty()) {
             sessionId = UUID.randomUUID().toString();
         }
-
         log.info("[RetrievalController] 收到查询: sessionId={}, query={}", sessionId, request.query());
+        // TODO 后续加上会话ID
+        retrievalService.vectorRetrieve(request.query());
 
-        ProcessedQuery result = retrievalService.processUserQuery(request.query(), sessionId);
-
-        return R.ok()
-                .add("sessionId", sessionId)
-                .add("originalQuery", result.getOriginalQuery())
-                .add("intent", result.getIntent().getCode())
-                .add("intentDesc", result.getIntent().getDescription())
-                .add("needsRetrieval", result.needsRetrieval())
-                .add("shouldReject", result.shouldReject())
-                .add("rewrittenQuery", result.getRewrittenQuery())
-                .add("reason", result.getIntentReason());
+        return R.ok();
     }
 
     /**
-     * 快速测试 - 只进行意图识别和查询重写
+     * 向量检索接口
      *
-     * @param query 用户输入
-     * @return 处理结果
+     * @param query 查询文本
+     * @param topK  返回结果数量（默认10）
+     * @param orgId 组织ID（默认default）
+     * @return 检索结果
      */
-    @GetMapping("/test")
-    public R quickTest(@RequestParam String query) {
-        log.info("[RetrievalController] 快速测试: {}", query);
+    @GetMapping("/vector-search")
+    public R vectorSearch(@RequestParam String query,
+                          @RequestParam(required = false, defaultValue = "10") Integer topK,
+                          @RequestParam(required = false, defaultValue = "default") String orgId) {
+        log.info("[RetrievalController] 向量检索: query={}, topK={}, orgId={}", query, topK, orgId);
 
-        ProcessedQuery result = retrievalService.processUserQuery(query);
+        retrievalService.vectorRetrieve(query, topK, orgId);
 
-        return R.ok()
-                .add("originalQuery", result.getOriginalQuery())
-                .add("intent", result.getIntent().getCode())
-                .add("intentDesc", result.getIntent().getDescription())
-                .add("rewrittenQuery", result.getRewrittenQuery())
-                .add("reason", result.getIntentReason());
-    }
-
-    /**
-     * 获取对话历史
-     *
-     * @param sessionId 会话ID
-     * @return 对话历史
-     */
-    @GetMapping("/history/{sessionId}")
-    public R getHistory(@PathVariable String sessionId) {
-        List<DialogueTurn> history = retrievalService.getDialogueHistory(sessionId);
-        return R.ok().add("history", history);
-    }
-
-    /**
-     * 清除对话历史
-     *
-     * @param sessionId 会话ID
-     * @return 结果
-     */
-    @DeleteMapping("/history/{sessionId}")
-    public R clearHistory(@PathVariable String sessionId) {
-        retrievalService.clearDialogueHistory(sessionId);
-        return R.ok().add("cleared", true);
+        return R.ok();
     }
 
     /**

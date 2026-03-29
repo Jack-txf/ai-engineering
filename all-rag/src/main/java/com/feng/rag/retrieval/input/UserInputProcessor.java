@@ -5,7 +5,6 @@ import com.feng.rag.retrieval.model.ProcessedQuery;
 import com.feng.rag.retrieval.model.UserIntent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 /**
@@ -36,40 +35,32 @@ public class UserInputProcessor {
      */
     public ProcessedQuery process(String userQuery, List<DialogueTurn> dialogueHistory) {
         log.info("[UserInputProcessor] 开始处理用户输入: {}", userQuery);
-
         // 1. 意图识别
         IntentClassifier.IntentResult intentResult = intentClassifier.classify(userQuery);
         UserIntent intent = intentResult.intent();
-
         log.info("[UserInputProcessor] 意图识别结果: {} - {}", intent.getDescription(), intentResult.reason());
-
         // 2. 根据意图决定后续处理
         ProcessedQuery.ProcessedQueryBuilder resultBuilder = ProcessedQuery.builder()
                 .originalQuery(userQuery)
                 .intent(intent)
                 .intentReason(intentResult.reason());
-
         // 3. 敏感词直接返回，不处理
         if (intent.shouldReject()) {
             log.warn("[UserInputProcessor] 检测到敏感词，直接拒绝");
             resultBuilder.rewrittenQuery(null);
             return resultBuilder.build();
         }
-
         // 4. 闲聊也直接返回，不重写
         if (intent.equals(UserIntent.CHITCHAT)) {
             log.info("[UserInputProcessor] 闲聊类型，直接返回");
             resultBuilder.rewrittenQuery(userQuery);
             return resultBuilder.build();
         }
-
         // 5. 知识问答 - 进行查询重写
         String rewrittenQuery = queryRewriter.rewrite(userQuery, dialogueHistory);
         resultBuilder.rewrittenQuery(rewrittenQuery);
-
-        log.info("[UserInputProcessor] 处理完成: original='{}', rewritten='{}'",
+        log.info("[UserInputProcessor] 重写处理完成: original='{}', rewritten='{}'",
                 userQuery, rewrittenQuery);
-
         return resultBuilder.build();
     }
 
@@ -81,16 +72,5 @@ public class UserInputProcessor {
      */
     public ProcessedQuery process(String userQuery) {
         return process(userQuery, null);
-    }
-
-    /**
-     * 快速判断是否需要走检索流程
-     *
-     * @param userQuery 用户原始输入
-     * @return 是否需要检索
-     */
-    public boolean needsRetrieval(String userQuery) {
-        IntentClassifier.IntentResult result = intentClassifier.classify(userQuery);
-        return result.intent().needsRetrieval();
     }
 }

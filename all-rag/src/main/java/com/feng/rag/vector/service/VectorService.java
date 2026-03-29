@@ -1,6 +1,8 @@
 package com.feng.rag.vector.service;
 
 import com.feng.rag.controller.R;
+import com.feng.rag.vector.entity.SearchResult;
+import io.milvus.v2.service.vector.response.SearchResp;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -11,7 +13,7 @@ import java.util.List;
  * @author txf
  * @since 2026/3/26
  */
-public interface MilvusService {
+public interface VectorService {
 
     /**
      * 创建集合（如果不存在）
@@ -54,6 +56,19 @@ public interface MilvusService {
 
     // 上传文件，分块，然后向量化，存入milvus
     R tackleFile(MultipartFile file, String org_id);
+
+    // ==================== 向量检索 ====================
+
+    /**
+     * 向量检索
+     *
+     * @param query      查询文本
+     * @param topK       返回结果数量
+     * @param orgId      组织ID（多租户隔离）
+     * @param collection 集合名称（可选，默认使用配置中的）
+     * @return 搜索结果列表
+     */
+    SearchResp vectorSearch(String query, Integer topK, String orgId, String collection);
 
     // ==================== 混合检索 ====================
 

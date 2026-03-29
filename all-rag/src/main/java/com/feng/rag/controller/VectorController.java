@@ -1,7 +1,7 @@
 package com.feng.rag.controller;
 
 import com.feng.rag.vector.dto.CreateCollectionRequest;
-import com.feng.rag.vector.service.MilvusService;
+import com.feng.rag.vector.service.VectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -21,7 +21,7 @@ import java.util.List;
 @RequestMapping("/v1/vector")
 @RequiredArgsConstructor
 public class VectorController {
-    private final MilvusService milvusService;
+    private final VectorService milvusService;
 
     // ==================== 集合管理 ====================
     /**

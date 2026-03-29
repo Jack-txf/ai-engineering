@@ -3,8 +3,10 @@ package com.feng.rag;
 import com.feng.rag.model.ModelFactory;
 import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.siliconflow.SiliconfowModel;
+import com.feng.rag.retrieval.RetrievalService;
 import com.feng.rag.retrieval.input.IntentClassifier;
 import com.feng.rag.retrieval.input.QueryRewriter;
+import io.milvus.v2.service.vector.response.SearchResp;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,9 +31,9 @@ public class RagTestApplication {
 
     }
 
+    // 意图识别测试
     @Resource
     private IntentClassifier intentClassifier;
-    // 意图识别测试
     @Test
     public void testIntentClassifier() {
         System.out.println(intentClassifier.classify("请帮我写一个hello world程序"));
@@ -50,5 +52,23 @@ public class RagTestApplication {
     public void testQueryRewriter() {
         System.out.println(queryRewriter.rewrite("那理科分数线呢？", null));
         System.out.println("=========");
+    }
+
+    // 单纯向量检索测试
+    @Resource
+    private RetrievalService retrievalService;
+    @Test
+    public void testVectorRetrieve() {
+        SearchResp searchResp = retrievalService.vectorRetrieve("那他的KRaft模式是什么？");
+        List<List<SearchResp.SearchResult>> results = searchResp.getSearchResults();
+        for (List<SearchResp.SearchResult> res : results) {
+            for (int i = 0; i < res.size(); i++) {
+                SearchResp.SearchResult r = res.get(i);
+                System.out.println("Top-" + (i + 1) + " score=" + r.getScore() + ", id=" + r.getId());
+                Object text = r.getEntity() == null ? null : r.getEntity();
+                System.out.println(text);
+                System.out.println("=========");
+            }
+        }
     }
 }
