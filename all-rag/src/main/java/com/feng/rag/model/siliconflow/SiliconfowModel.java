@@ -46,8 +46,10 @@ public class SiliconfowModel extends AbstractModel {
 
         // 创建OkHttpClient
         this.siliconfowClient = new OkHttpClient.Builder()
-                .connectTimeout(3000, TimeUnit.MILLISECONDS) // 设置连接超时时间
-                .retryOnConnectionFailure(true) // 允许重试
+                .connectTimeout(30, TimeUnit.SECONDS)  // 连接超时：30秒
+                .readTimeout(60, TimeUnit.SECONDS)     // 读取超时：60秒（LLM响应可能较慢）
+                .writeTimeout(30, TimeUnit.SECONDS)    // 写入超时：30秒
+                .retryOnConnectionFailure(true)        // 允许重试
                 .build();
         this.factory = EventSources.createFactory(this.siliconfowClient); // 创建 EventSource.Factory
     }
@@ -68,7 +70,7 @@ public class SiliconfowModel extends AbstractModel {
         try {
             response = call.execute();
             String responseBody = response.body().string();
-            log.info("硅基流动[同步chat]返回：{}", responseBody);
+            // log.info("硅基流动[同步chat]返回：{}", responseBody);
             return R.ok().add("aiRes", responseBody);
         } catch (SocketTimeoutException e) {
             log.error("SocketTimeoutException: {}", e.getMessage());
@@ -112,7 +114,9 @@ public class SiliconfowModel extends AbstractModel {
         map.put("model", providerConfig.getChatModel().getFirst());
         map.put("messages", messages);
         map.put("stream", stream);
+        map.put("enable_thinking", false); // 同步调用这里不开启思考模式
         try {
+
             return objectMapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("构建JSON请求体失败", e);

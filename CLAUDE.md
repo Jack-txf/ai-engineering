@@ -8,7 +8,6 @@ This is a Java-based RAG (Retrieval-Augmented Generation) system consisting of m
 
 - **all-rag/**: Main RAG application (Spring Boot 3.5.x, Java 21)
 - **chunking-test/**: Standalone test project for chunking strategies
-- **claude-code-demo/**: Algorithm practice project (legacy, can be ignored)
 
 The main focus is the `all-rag` module, which implements a complete RAG pipeline.
 
@@ -118,7 +117,8 @@ EmbeddingResponse response = model.embedding(texts);
 Milvus integration for vector storage and hybrid retrieval.
 
 **Key classes:**
-- `MilvusService`: Collection management, vector upsert/search
+- `MilvusService`: Interface for collection management, vector upsert/search
+- `MilvusServiceImpl`: Implementation using Milvus SDK
 - `VectorController`: REST endpoints for vector operations
 - `MilvusConfig`: Connection and default collection settings
 
@@ -131,10 +131,16 @@ rag:
       uri: http://localhost:19530
       collection:
         name: rag_documents
-        dimension: 1536
+        dimension: 2560
         index-type: HNSW
         metric-type: COSINE
 ```
+
+### 5. Retrieval (`retrieval/` package)
+
+**Status:** Work in progress (stub `RetrievalService` exists, awaiting implementation).
+
+This will implement the final retrieval stage combining vector similarity search with reranking.
 
 ## Configuration Key Points
 
@@ -154,7 +160,17 @@ All configuration is in `all-rag/src/main/resources/application.yml`:
 | Text ingest | `POST /api/v1/datasource/text` | Raw text submission |
 | Chunk document | `POST /api/v1/chunk` | Chunk parsed document |
 | Vector search | `POST /api/v1/vector/search` | Semantic similarity search |
-| File to vector | `POST /api/v1/vector/tackle` | Upload → Parse → Chunk → Embed → Store |
+| File to vector | `POST /api/v1/vector/upload` | Upload → Parse → Chunk → Embed → Store |
+| Collection mgmt | `POST/GET/DELETE /api/v1/vector/collections` | Milvus collection operations |
+
+**API Response Format:** All endpoints return `R` (see `controller/R.java`) with standardized wrapper:
+```java
+{
+  "code": 200,
+  "message": "success",
+  "data": { ... }
+}
+```
 
 ## chunking-test Module
 
@@ -168,3 +184,44 @@ Contains 3 basic chunking implementations:
 - `FixedSizeChunker`: Fixed character window
 - `HierarchicalChunker`: Section-aware chunking
 - `SemanticBoundaryChunker`: Sentence/paragraph boundary preservation
+
+## End-to-End File Processing Flow
+
+The `VectorController.uploadFile()` → `MilvusService.tackleFile()` method demonstrates the complete pipeline:
+
+```
+MultipartFile → DataSourceIngestionService.ingestFile()
+                     ↓
+              TikaDocumentParser (extract text)
+                     ↓
+              ChunkingService.chunk() (auto-select strategy by MIME type)
+                     ↓
+              ModelFactory.getModel().embedding() (generate vectors)
+                     ↓
+              MilvusService.upsert() (store in vector DB)
+```
+
+## Monitoring
+
+Spring Boot Actuator with Micrometer/Prometheus is configured:
+
+- Health check: `GET /api/actuator/health`
+- Prometheus metrics: `GET /api/actuator/prometheus`
+
+Key metrics (from `README.md`):
+- `rag.document.parse.duration` - Document parse time by parser/status
+- `rag.document.parse.count` - Parse count by parser/status
+- `rag.api.upload/url/text` - API endpoint latency
+
+## External Dependencies
+
+- **Milvus**: Vector database (configure URI in `application.yml`)
+- **SiliconFlow API**: Embedding and chat models (requires `SILICONFLOW-API-KEY` env var)
+- **(Optional) Tesseract**: OCR for scanned PDFs (must be installed separately)
+
+## Environment Variables
+
+```bash
+SILICONFLOW-API-KEY=your_api_key_here
+MILVUS_TOKEN=optional_auth_token
+```
