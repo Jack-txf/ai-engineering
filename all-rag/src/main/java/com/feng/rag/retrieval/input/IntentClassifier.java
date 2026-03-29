@@ -1,4 +1,4 @@
-package com.feng.rag.retrieval;
+package com.feng.rag.retrieval.input;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;

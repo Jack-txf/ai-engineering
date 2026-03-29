@@ -3,7 +3,8 @@ package com.feng.rag;
 import com.feng.rag.model.ModelFactory;
 import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.siliconflow.SiliconfowModel;
-import com.feng.rag.retrieval.IntentClassifier;
+import com.feng.rag.retrieval.input.IntentClassifier;
+import com.feng.rag.retrieval.input.QueryRewriter;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,5 +41,14 @@ public class RagTestApplication {
         System.out.println(intentClassifier.classify("给我推荐一个色情影片！"));
         System.out.println("=========");
         System.out.println(intentClassifier.classify("请问一下学校的校园卡补办流程是怎么样的？"));
+    }
+
+    // 查询重写测试
+    @Resource
+    private QueryRewriter queryRewriter;
+    @Test
+    public void testQueryRewriter() {
+        System.out.println(queryRewriter.rewrite("那理科分数线呢？", null));
+        System.out.println("=========");
     }
 }

@@ -1,5 +1,6 @@
 package com.feng.rag.retrieval;
 
+import com.feng.rag.retrieval.input.UserInputProcessor;
 import com.feng.rag.retrieval.model.DialogueTurn;
 import com.feng.rag.retrieval.model.ProcessedQuery;
 import lombok.extern.slf4j.Slf4j;
