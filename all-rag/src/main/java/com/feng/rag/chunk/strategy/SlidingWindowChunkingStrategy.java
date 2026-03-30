@@ -57,56 +57,51 @@ public class SlidingWindowChunkingStrategy extends AbstractChunkingStrategy {
     protected List<Chunk> doChunk(String content, String docId, String docName, ChunkingOptions options) {
         List<Chunk> chunks = new ArrayList<>();
         int contentLength = content.length();
-
-        int windowSize = options.getTargetChunkSize();
-        int stepSize = windowSize - options.getOverlapSize();
-
-        // 确保步长至少为 1
-        if (stepSize <= 0) {
-            stepSize = windowSize / 2;
-        }
+        int targetSize = options.getTargetChunkSize();
+        int overlap = options.getOverlapSize();
 
         int position = 0;
         int chunkIndex = 0;
 
         while (position < contentLength) {
-            int endPos = Math.min(position + windowSize, contentLength);
+            // 1. 确定初始结束位置
+            int endPos = Math.min(position + targetSize, contentLength);
 
-            // 尝试在边界处切分
+            // 2. 寻找最佳切分点（如句号、换行）
             if (endPos < contentLength) {
-                endPos = findBestSplitPoint(content, endPos, true, options);
+                int bestSplit = findBestSplitPoint(content, endPos, true, options);
+                // 防止寻找到的切分点比起点还早（极端情况防御）
+                if (bestSplit > position) {
+                    endPos = bestSplit;
+                }
             }
 
+            // 3. 提取并校验分块
             String chunkContent = content.substring(position, endPos).trim();
 
-            if (!chunkContent.isEmpty() && chunkContent.length() >= options.getMinChunkSize()) {
-                Chunk chunk = Chunk.builder()
-                    .chunkIndex(chunkIndex++)
-                    .content(chunkContent)
-                    .contentLength(chunkContent.length())
-                    .documentId(docId)
-                    .documentName(docName)
-                    .startOffset(position)
-                    .endOffset(endPos)
-                    .chunkType(detectChunkType(chunkContent))
-                    .startsWithCompleteSentence(isCompleteSentenceStart(chunkContent))
-                    .endsWithCompleteSentence(isCompleteSentenceEnd(chunkContent))
-                    .chunkingStrategy(STRATEGY_NAME)
-                    .build();
-
-                chunks.add(chunk);
+            // 只有满足最小长度才添加，或者是最后一段
+            if (!chunkContent.isEmpty() && (chunkContent.length() >= options.getMinChunkSize() || endPos == contentLength)) {
+                chunks.add(buildChunk(chunkContent, position, endPos, chunkIndex++, docId, docName));
             }
 
-            position += stepSize;
+            // 4. 计算下一个起始位置（核心修改：基于当前切分点计算 Overlap）
+            if (endPos >= contentLength) {
+                break; // 已处理完毕
+            }
 
-            // 防止最后一个分块太小，提前结束
+            // 下一次的起点 = 当前终点 - 重叠量
+            int nextPosition = endPos - overlap;
+
+            // 防御：确保下一次起点至少比当前起点进步一步，防止死循环
+            position = Math.max(nextPosition, position + 1);
+
+            // 5. 尾部处理优化：如果剩余内容太少，直接合并到当前最后一块并退出
             if (contentLength - position < options.getMinChunkSize() && !chunks.isEmpty()) {
-                // 将剩余内容合并到最后一个分块
                 Chunk lastChunk = chunks.get(chunks.size() - 1);
-                if (endPos < contentLength) {
-                    String extended = content.substring(lastChunk.getStartOffset(), contentLength);
-                    lastChunk.setContent(extended);
-                    lastChunk.setContentLength(extended.length());
+                String remaining = content.substring(lastChunk.getEndOffset(), contentLength).trim();
+                if (!remaining.isEmpty()) {
+                    lastChunk.setContent(lastChunk.getContent() + " " + remaining);
+                    lastChunk.setContentLength(lastChunk.getContent().length());
                     lastChunk.setEndOffset(contentLength);
                 }
                 break;
@@ -115,5 +110,24 @@ public class SlidingWindowChunkingStrategy extends AbstractChunkingStrategy {
 
         log.debug("[{}] 生成了 {} 个滑动窗口分块", STRATEGY_NAME, chunks.size());
         return chunks;
+    }
+
+    /**
+     * 提取对象构建逻辑，保持代码整洁
+     */
+    private Chunk buildChunk(String content, int start, int end, int index, String docId, String docName) {
+        return Chunk.builder()
+                .chunkIndex(index)
+                .content(content)
+                .contentLength(content.length())
+                .documentId(docId)
+                .documentName(docName)
+                .startOffset(start)
+                .endOffset(end)
+                .chunkType(detectChunkType(content))
+                .startsWithCompleteSentence(isCompleteSentenceStart(content))
+                .endsWithCompleteSentence(isCompleteSentenceEnd(content))
+                .chunkingStrategy(STRATEGY_NAME)
+                .build();
     }
 }

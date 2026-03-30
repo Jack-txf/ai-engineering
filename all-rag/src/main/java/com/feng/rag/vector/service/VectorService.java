@@ -17,7 +17,6 @@ public interface VectorService {
 
     /**
      * 创建集合（如果不存在）
-     *
      * @param collectionName 集合名称
      * @param dimension      向量维度
      * @return 是否创建成功
@@ -26,14 +25,12 @@ public interface VectorService {
 
     /**
      * 使用默认配置创建集合
-     *
      * @return 是否创建成功
      */
     boolean createCollection();
 
     /**
      * 删除集合
-     *
      * @param collectionName 集合名称
      * @return 是否删除成功
      */
@@ -41,7 +38,6 @@ public interface VectorService {
 
     /**
      * 检查集合是否存在
-     *
      * @param collectionName 集合名称
      * @return 是否存在
      */
@@ -49,16 +45,13 @@ public interface VectorService {
 
     /**
      * 获取所有集合名称
-     *
      * @return 集合名称列表
      */
     List<String> listCollections();
-
     // 上传文件，分块，然后向量化，存入milvus
     R tackleFile(MultipartFile file, String org_id);
 
     // ==================== 向量检索 ====================
-
     /**
      * 向量检索
      *
@@ -70,44 +63,19 @@ public interface VectorService {
      */
     SearchResp vectorSearch(String query, Integer topK, String orgId, String collection);
 
+    // ==================== 稀疏检索 ====================
+    /**
+     * 稀疏检索（基于关键词匹配）
+     *
+     * @param query      查询文本
+     * @param topK       返回结果数量
+     * @param orgId      组织ID（多租户隔离）
+     * @param collection 集合名称（可选，默认使用配置中的）
+     * @return 搜索结果列表
+     */
+    SearchResp sparseSearch(String query, Integer topK, String orgId, String collection);
+
     // ==================== 混合检索 ====================
 
-    /**
-     * 关键词检索（基于 BM25）
-     *
-     * @param keywords 关键词
-     * @param topK     返回结果数量
-     * @return 搜索结果列表
-     */
-
-    /**
-     * 关键词检索（指定集合）
-     *
-     * @param collectionName 集合名称
-     * @param keywords       关键词
-     * @param topK           返回结果数量
-     * @return 搜索结果列表
-     */
-
-    /**
-     * 混合检索（向量 + 关键词）
-     * 使用 RRF (Reciprocal Rank Fusion) 融合结果
-     *
-     * @param vector   查询向量
-     * @param keywords 关键词
-     * @param topK     返回结果数量
-     * @return 融合后的搜索结果
-     */
-
-    /**
-     * 混合检索（指定集合）
-     *
-     * @param collectionName 集合名称
-     * @param vector         查询向量
-     * @param keywords       关键词
-     * @param topK           返回结果数量
-     * @param rrfK           RRF 融合参数（默认 60）
-     * @return 融合后的搜索结果
-     */
 
 }

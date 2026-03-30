@@ -54,9 +54,28 @@ public class RetrievalController {
                           @RequestParam(required = false, defaultValue = "default") String orgId) {
         log.info("[RetrievalController] 向量检索: query={}, topK={}, orgId={}", query, topK, orgId);
 
-        retrievalService.vectorRetrieve(query, topK, orgId);
+        retrievalService.vectorRetrieve(query);
 
         return R.ok();
+    }
+
+    /**
+     * 稀疏检索接口（关键词匹配）
+     *
+     * @param query 查询文本
+     * @param topK  返回结果数量（默认10）
+     * @param orgId 组织ID（默认default）
+     * @return 检索结果
+     */
+    @GetMapping("/sparse-search")
+    public R sparseSearch(@RequestParam String query,
+                          @RequestParam(required = false, defaultValue = "10") Integer topK,
+                          @RequestParam(required = false, defaultValue = "default") String orgId) {
+        log.info("[RetrievalController] 稀疏检索: query={}, topK={}, orgId={}", query, topK, orgId);
+
+        var results = retrievalService.sparseRetrieve(query);
+
+        return R.ok().add("results", results);
     }
 
     /**

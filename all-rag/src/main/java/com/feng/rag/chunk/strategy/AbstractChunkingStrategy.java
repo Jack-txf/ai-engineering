@@ -123,17 +123,17 @@ public abstract class AbstractChunkingStrategy implements ChunkingStrategy {
             }
         }
         // 4. 过滤低质量分块
-        if (options.isFilterShortChunks()) {
-            chunks = chunks.stream()
-                .filter(c -> c.getContentLength() >= options.getMinChunkSize())
-                .toList();
-        }
-        // 5. 过滤质量不达标分块
-        if (options.isEnableQualityFilter()) {
-            chunks = chunks.stream()
-                .filter(c -> c.getQualityScore() >= options.getMinQualityScore())
-                .toList();
-        }
+        // if (options.isFilterShortChunks()) {
+        //     chunks = chunks.stream()
+        //         .filter(c -> c.getContentLength() >= options.getMinChunkSize())
+        //         .toList();
+        // }
+        // // 5. 过滤质量不达标分块
+        // if (options.isEnableQualityFilter()) {
+        //     chunks = chunks.stream()
+        //         .filter(c -> c.getQualityScore() >= options.getMinQualityScore())
+        //         .toList();
+        // }
         // 6. 设置索引
         for (int i = 0; i < chunks.size(); i++) {
             chunks.get(i).setChunkIndex(i);

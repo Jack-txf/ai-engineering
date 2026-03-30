@@ -64,7 +64,8 @@ public class QueryRewriter {
         // }
         // 构建历史对话文本 TODO 后续从数据库读取
         // String historyText = buildHistoryText(dialogueHistory);
-        String historyText = generateHistory();
+        // String historyText = generateHistory();
+        String historyText = "";
 
         String userPrompt = String.format("""
                 历史对话如下：
