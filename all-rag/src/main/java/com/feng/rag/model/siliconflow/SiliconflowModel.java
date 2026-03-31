@@ -7,6 +7,8 @@ import com.feng.rag.controller.R;
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.config.GlobalModelProperties;
 import com.feng.rag.model.embedding.EmbeddingResponse;
+import com.feng.rag.model.rerank.RerankResponse;
+import com.feng.rag.model.rerank.RerankResult;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import okhttp3.sse.EventSource;
@@ -25,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  * @Date: 2026/3/24
  */
 @Slf4j
-public class SiliconfowModel extends AbstractModel {
+public class SiliconflowModel extends AbstractModel {
 
     public static final String SILICONFLOW = "siliconflow";
 
@@ -39,7 +41,7 @@ public class SiliconfowModel extends AbstractModel {
 
     private final GlobalModelProperties.ProviderConfig providerConfig;
 
-    public SiliconfowModel(GlobalModelProperties.ProviderConfig providerConfig) {
+    public SiliconflowModel(GlobalModelProperties.ProviderConfig providerConfig) {
         this.providerConfig = providerConfig;
         objectMapper = new ObjectMapper()
                 .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
@@ -182,6 +184,125 @@ public class SiliconfowModel extends AbstractModel {
         } catch (JsonProcessingException e) {
             log.error(" SilvaFlow Embedding response convert to json error: {}", e.getMessage());
             throw new RuntimeException(e);
+        }
+    }
+
+    // -------------------------------------------- Rerank部分 -------------------------
+    @Override
+    public RerankResponse rerank(String query, List<String> documents, Integer topN) {
+        if (query == null || query.isEmpty()) {
+            log.warn("Rerank查询文本为空！");
+            return RerankResponse.builder()
+                    .errorMsg("Rerank查询文本为空！")
+                    .build();
+        }
+        if (documents == null || documents.isEmpty()) {
+            log.warn("Rerank文档列表为空！");
+            return RerankResponse.builder()
+                    .errorMsg("Rerank文档列表为空！")
+                    .build();
+        }
+        log.info("开始调用硅基流动[Rerank]... 查询: {}, 文档数: {}",
+                query.substring(0, Math.min(query.length(), 50)), documents.size());
+
+        // 构建请求
+        String jsonData = buildRerankBodyJson(query, documents, topN);
+        RequestBody body = RequestBody.create(jsonData, MediaType.get("application/json"));
+        Request request = new Request.Builder()
+                .url(providerConfig.getBaseUrl() + RERANK_URL)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + providerConfig.getApiKey())
+                .post(body)
+                .build();
+        Call call = siliconfowClient.newCall(request);
+        try {
+            Response response = call.execute();
+            if (!response.isSuccessful()) {
+                String errorBody = response.body().string();
+                log.error("SiliconFlow Rerank请求失败: {}", errorBody);
+                return RerankResponse.builder()
+                        .errorMsg("SiliconFlow Rerank Error: " + errorBody)
+                        .build();
+            }
+            return buildRerankResponse(response.body().string());
+        } catch (IOException e) {
+            log.error("SiliconFlow Rerank IO错误: {}", e.getMessage());
+            return RerankResponse.builder()
+                    .errorMsg("SiliconFlow Rerank IO Error: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private String buildRerankBodyJson(String query, List<String> documents, Integer topN) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("model", providerConfig.getRerankModel().getFirst());
+        map.put("query", query);
+        map.put("documents", documents);
+        if (topN != null && topN > 0) {
+            map.put("top_n", topN);
+        }
+        // 可选参数，默认返回相关性分数
+        map.put("return_documents", true);
+
+        try {
+            return objectMapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("构建Rerank JSON请求体失败", e);
+        }
+    }
+
+    private RerankResponse buildRerankResponse(String responseBody) {
+        try {
+            // SiliconFlow Rerank API返回格式:
+            // {
+            //   "id": "...",
+            //   "results": [
+            //     {"index": 0, "relevance_score": 0.95, "document": {"text": "..."}},
+            //     ...
+            //   ],
+            //   "meta": {...}
+            // }
+            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+
+            String model = (String) responseMap.get("model");
+            List<Map<String, Object>> results = (List<Map<String, Object>>) responseMap.get("results");
+
+            List<RerankResult> rerankResults = results.stream()
+                    .map(result -> {
+                        // document 是对象 {"text": "..."}，需要提取 text 字段
+                        String documentText = null;
+                        Object documentObj = result.get("document");
+                        if (documentObj instanceof Map) {
+                            Map<String, Object> documentMap = (Map<String, Object>) documentObj;
+                            Object textObj = documentMap.get("text");
+                            if (textObj != null) {
+                                documentText = textObj.toString();
+                            }
+                        } else if (documentObj != null) {
+                            // 兼容直接返回字符串的情况
+                            documentText = documentObj.toString();
+                        }
+                        return RerankResult.builder()
+                                .index((Integer) result.get("index"))
+                                .relevanceScore((Double) result.get("relevance_score"))
+                                .document(documentText)
+                                .build();
+                    })
+                    .toList();
+            return RerankResponse.builder()
+                    .model(model)
+                    .results(rerankResults)
+                    .build();
+        } catch (JsonProcessingException e) {
+            log.error("SiliconFlow Rerank响应解析失败: {}", e.getMessage());
+            return RerankResponse.builder()
+                    .errorMsg("Parse Rerank Response Error: " + e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            log.error("SiliconFlow Rerank处理响应时发生错误: {}", e.getMessage());
+            return RerankResponse.builder()
+                    .errorMsg("Process Rerank Response Error: " + e.getMessage())
+                    .build();
         }
     }
 }

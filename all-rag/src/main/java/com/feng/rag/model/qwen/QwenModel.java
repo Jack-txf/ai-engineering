@@ -4,6 +4,7 @@ import com.feng.rag.controller.R;
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.config.GlobalModelProperties;
 import com.feng.rag.model.embedding.EmbeddingResponse;
+import com.feng.rag.model.rerank.RerankResponse;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -35,6 +36,12 @@ public class QwenModel extends AbstractModel {
 
     @Override
     public EmbeddingResponse embedding(List<String> text) {
+        return null;
+    }
+
+    @Override
+    public RerankResponse rerank(String query, List<String> documents, Integer topN) {
+        // QwenModel 暂未实现 Rerank 功能，直接返回空结果
         return null;
     }
 }

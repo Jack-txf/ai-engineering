@@ -9,7 +9,7 @@ import com.feng.rag.datasource.common.DocumentParseResult;
 import com.feng.rag.datasource.service.DataSourceIngestionService;
 import com.feng.rag.model.ModelFactory;
 import com.feng.rag.model.embedding.EmbeddingResponse;
-import com.feng.rag.model.siliconflow.SiliconfowModel;
+import com.feng.rag.model.siliconflow.SiliconflowModel;
 import com.feng.rag.vector.config.MilvusProperties;
 import com.feng.rag.vector.exception.MilvusException;
 import com.feng.rag.vector.service.VectorService;
@@ -293,7 +293,7 @@ public class MilvusServiceImpl implements VectorService {
                     .map(Chunk::getContent)
                     .toList();
                 EmbeddingResponse embeddingRes = modelFactory
-                        .getModel(SiliconfowModel.SILICONFLOW).embedding(texts);
+                        .getModel(SiliconflowModel.SILICONFLOW).embedding(texts);
                 if (embeddingRes.getData() == null || embeddingRes.getData().isEmpty()) {
                     log.warn("[tackleFile] 第 {} 批向量化失败，跳过", i / batchSize);
                     continue;
@@ -386,7 +386,7 @@ public class MilvusServiceImpl implements VectorService {
     }
     private SearchResp executeHybridSearch(String query, int limit, String targetOrgId, String collectionName) {
         // 1. 得到用户query的Embedding
-        EmbeddingResponse response = modelFactory.getModel(SiliconfowModel.SILICONFLOW).embedding(List.of(query));
+        EmbeddingResponse response = modelFactory.getModel(SiliconflowModel.SILICONFLOW).embedding(List.of(query));
         List<Float> embedding = response.getData().getFirst().getEmbedding();
         // 2. 向量检索
         AnnSearchReq denseReq = AnnSearchReq.builder()
@@ -497,7 +497,7 @@ public class MilvusServiceImpl implements VectorService {
         try {
             // 1. 向量化查询文本
             EmbeddingResponse embeddingRes = modelFactory
-                    .getModel(SiliconfowModel.SILICONFLOW)
+                    .getModel(SiliconflowModel.SILICONFLOW)
                     .embedding(List.of(query));
             if (embeddingRes.getData() == null || embeddingRes.getData().isEmpty()) {
                 log.error("[vectorSearch] 查询文本向量化失败");

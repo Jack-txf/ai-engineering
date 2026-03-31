@@ -35,14 +35,14 @@ cd all-rag && mvn clean
 
 ## RAG Pipeline Architecture
 
-The system implements a 4-stage RAG pipeline:
+The system implements a 5-stage RAG pipeline:
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Document  │───▶│   Chunking  │───▶│  Embedding  │───▶│    Milvus   │
-│   Parsing   │    │  (5 types)  │    │  (Models)   │    │Vector Store │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-   (Tika)                               (Factory)             (SDK)
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Document  │───▶│   Chunking  │───▶│  Embedding  │───▶│    Milvus   │───▶│  Retrieval  │
+│   Parsing   │    │  (5 types)  │    │  (Models)   │    │Vector Store │    │(Vector/     │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    │Sparse/Hybrid)│
+   (Tika)                               (Factory)             (SDK)         └─────────────┘
 ```
 
 ### 1. Document Parsing (`datasource/` package)
@@ -51,8 +51,8 @@ Uses Apache Tika to extract text and metadata from various file formats (PDF, Wo
 
 **Key classes:**
 - `DataSourceIngestionService`: Entry point for file upload, URL, or raw text
-- `TikaDocumentParser`: Parses documents with timeout protection
-- `DocumentParseResult`: Unified output format
+- `TikaDocumentParser`: Parses documents with timeout protection using `CompletableFuture`
+- `DocumentParseResult`: Unified output format with status (SUCCESS/PARTIAL/FAILED/TIMEOUT/UNSUPPORTED)
 
 **Entry methods:**
 ```java
@@ -78,6 +78,10 @@ Implements 5 chunking strategies selectable via configuration or API:
 - `ChunkingService`: Strategy routing and pipeline orchestration
 - `ChunkingStrategy`: Interface for all strategies
 - `ChunkingOptions`: Configuration (size, overlap, boundaries)
+
+**Chunking algorithm details:**
+- `ParagraphChunkingStrategy` uses a 3-layer approach: paragraphs → sentences → forced character split for oversized content
+- `RecursiveChunkingStrategy` preserves document structure (headers, lists, code blocks)
 
 **Usage:**
 ```java
@@ -117,8 +121,8 @@ EmbeddingResponse response = model.embedding(texts);
 Milvus integration for vector storage and hybrid retrieval.
 
 **Key classes:**
-- `MilvusService`: Interface for collection management, vector upsert/search
-- `MilvusServiceImpl`: Implementation using Milvus SDK
+- `VectorService`: Interface for collection management, vector upsert/search
+- `MilvusServiceImpl`: Implementation using Milvus SDK v2.6.6
 - `VectorController`: REST endpoints for vector operations
 - `MilvusConfig`: Connection and default collection settings
 
@@ -138,9 +142,24 @@ rag:
 
 ### 5. Retrieval (`retrieval/` package)
 
-**Status:** Work in progress (stub `RetrievalService` exists, awaiting implementation).
+Online RAG retrieval with user input processing and multiple search modes.
 
-This will implement the final retrieval stage combining vector similarity search with reranking.
+**Key classes:**
+- `RetrievalService`: Coordinates user input processing and retrieval (vector/sparse/hybrid)
+- `UserInputProcessor`: Intent classification + query rewriting pipeline
+- `IntentClassifier`: Determines if query needs retrieval or is chitchat/sensitive
+- `QueryRewriter`: Expands/rewrites queries for better retrieval
+- `RetrievalController`: REST endpoints for retrieval operations
+
+**Search modes:**
+- `vectorRetrieve()`: Dense vector similarity search
+- `sparseRetrieve()`: Keyword-based sparse retrieval
+- `hybridRetrieve()`: Combined vector + sparse with fusion
+
+**Input processing flow:**
+```
+User Query → Intent Classification → [If needs retrieval] → Query Rewriting → Search
+```
 
 ## Configuration Key Points
 
@@ -162,6 +181,9 @@ All configuration is in `all-rag/src/main/resources/application.yml`:
 | Vector search | `POST /api/v1/vector/search` | Semantic similarity search |
 | File to vector | `POST /api/v1/vector/upload` | Upload → Parse → Chunk → Embed → Store |
 | Collection mgmt | `POST/GET/DELETE /api/v1/vector/collections` | Milvus collection operations |
+| Vector retrieval | `GET /api/v1/retrieval/vector-search` | Online vector search |
+| Sparse retrieval | `GET /api/v1/retrieval/sparse-search` | Keyword-based search |
+| Query processing | `POST /api/v1/retrieval/query` | Full RAG pipeline entry |
 
 **API Response Format:** All endpoints return `R` (see `controller/R.java`) with standardized wrapper:
 ```java
@@ -208,7 +230,7 @@ Spring Boot Actuator with Micrometer/Prometheus is configured:
 - Health check: `GET /api/actuator/health`
 - Prometheus metrics: `GET /api/actuator/prometheus`
 
-Key metrics (from `README.md`):
+Key metrics:
 - `rag.document.parse.duration` - Document parse time by parser/status
 - `rag.document.parse.count` - Parse count by parser/status
 - `rag.api.upload/url/text` - API endpoint latency

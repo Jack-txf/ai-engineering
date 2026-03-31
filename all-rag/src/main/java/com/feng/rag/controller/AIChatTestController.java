@@ -2,7 +2,7 @@ package com.feng.rag.controller;
 
 import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.ModelFactory;
-import com.feng.rag.model.siliconflow.SiliconfowModel;
+import com.feng.rag.model.siliconflow.SiliconflowModel;
 import jakarta.annotation.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,14 +26,14 @@ public class AIChatTestController {
 
     @GetMapping("/chatSync")
     public R chatSync(@RequestParam("message") String message) {
-        return modelFactory.getModel(SiliconfowModel.SILICONFLOW)
+        return modelFactory.getModel(SiliconflowModel.SILICONFLOW)
                 .chatSync(List.of(new AbstractModel.Message("user", message)));
     }
 
     // 流式对话 - 返回 SseEmitter
     @GetMapping( path = "/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@RequestParam("message") String message) {
-        return modelFactory.getModel(SiliconfowModel.SILICONFLOW)
+        return modelFactory.getModel(SiliconflowModel.SILICONFLOW)
                 .chatStream(List.of(new AbstractModel.Message("user", message)));
     }
 }

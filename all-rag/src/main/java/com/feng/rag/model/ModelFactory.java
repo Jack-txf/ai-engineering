@@ -3,7 +3,7 @@ package com.feng.rag.model;
 import com.feng.rag.model.config.GlobalModelProperties;
 import com.feng.rag.model.exception.NotSupportProvider;
 import com.feng.rag.model.qwen.QwenModel;
-import com.feng.rag.model.siliconflow.SiliconfowModel;
+import com.feng.rag.model.siliconflow.SiliconflowModel;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -41,7 +41,7 @@ public class ModelFactory {
     private AbstractModel buildModel(String providerName, GlobalModelProperties.ProviderConfig providerConfig) {
         // 根据不同的提供商创建不同的模型
         return switch (providerName) {
-            case SiliconfowModel.SILICONFLOW -> new SiliconfowModel(providerConfig);
+            case SiliconflowModel.SILICONFLOW -> new SiliconflowModel(providerConfig);
             case QwenModel.QWEN -> new QwenModel(providerConfig);
             default -> throw new NotSupportProvider("不支持的提供商: " + providerName);
         };

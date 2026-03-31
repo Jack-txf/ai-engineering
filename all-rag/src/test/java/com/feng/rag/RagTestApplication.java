@@ -1,8 +1,10 @@
 package com.feng.rag;
 
+import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.ModelFactory;
 import com.feng.rag.model.embedding.EmbeddingResponse;
-import com.feng.rag.model.siliconflow.SiliconfowModel;
+import com.feng.rag.model.rerank.RerankResponse;
+import com.feng.rag.model.siliconflow.SiliconflowModel;
 import com.feng.rag.retrieval.RetrievalService;
 import com.feng.rag.retrieval.input.IntentClassifier;
 import com.feng.rag.retrieval.input.QueryRewriter;
@@ -26,7 +28,7 @@ public class RagTestApplication {
 
     @Test
     public void testEmbedding() {
-        EmbeddingResponse response = modelFactory.getModel(SiliconfowModel.SILICONFLOW)
+        EmbeddingResponse response = modelFactory.getModel(SiliconflowModel.SILICONFLOW)
                 .embedding(List.of("hello world", "峻神、建神！！"));
 
     }
@@ -103,5 +105,14 @@ public class RagTestApplication {
                 System.out.println("=========");
             }
         }
+    }
+
+    // Rerank测试
+    @Test
+    public void testRerank() {
+        String query = "我想吃一个红彤彤的大苹果！";
+        AbstractModel model = modelFactory.getModel(SiliconflowModel.SILICONFLOW);
+        RerankResponse rerankResponse = model.rerank(query, List.of("烂苹果", "红苹果", "香蕉", "橘子", "小苹果", "好吃的苹果", "大苹果"), 3);
+        System.out.println(rerankResponse);
     }
 }
