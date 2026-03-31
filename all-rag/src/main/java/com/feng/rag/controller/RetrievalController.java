@@ -79,8 +79,56 @@ public class RetrievalController {
     }
 
     /**
+     * RAG问答接口（完整流程：检索+重排+生成回答）
+     *
+     * @param request 请求体（包含query、sessionId等）
+     * @return AI回答
+     */
+    @PostMapping("/rag-answer")
+    public R ragAnswer(@RequestBody RagAnswerRequest request) {
+        String sessionId = request.sessionId();
+        if (sessionId == null || sessionId.isEmpty()) {
+            sessionId = UUID.randomUUID().toString();
+        }
+        log.info("[RetrievalController] RAG问答请求: sessionId={}, query={}",
+                sessionId, request.query());
+
+        R response = retrievalService.ragAnswer(
+                request.query(),
+                request.topK(),
+                request.topN(),
+                request.orgId(),
+                sessionId
+        );
+
+        return response.add("sessionId", sessionId);
+    }
+
+    /**
+     * 简化版RAG问答（使用默认参数）
+     */
+    @PostMapping("/rag-answer-simple")
+    public R ragAnswerSimple(@RequestBody QueryRequest request) {
+        String sessionId = request.sessionId();
+        if (sessionId == null || sessionId.isEmpty()) {
+            sessionId = UUID.randomUUID().toString();
+        }
+        log.info("[RetrievalController] 简化RAG问答请求: sessionId={}, query={}",
+                sessionId, request.query());
+
+        R response = retrievalService.ragAnswer(request.query());
+        return response.add("sessionId", sessionId);
+    }
+
+    /**
      * 请求体
      */
     public record QueryRequest(String query, String sessionId) {
+    }
+
+    /**
+     * RAG问答请求体（完整参数）
+     */
+    public record RagAnswerRequest(String query, String sessionId, Integer topK, Integer topN, String orgId) {
     }
 }
