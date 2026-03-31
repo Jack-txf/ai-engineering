@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 段落分块策略 —— 以段落为单位，智能合并小段落
@@ -30,6 +32,11 @@ import java.util.List;
 public class ParagraphChunkingStrategy extends AbstractChunkingStrategy {
 
     public static final String STRATEGY_NAME = "paragraph";
+
+    // 匹配段落：连续两个或多个换行符，允许中间有空格
+    private static final Pattern PARAGRAPH_PATTERN = Pattern.compile("(\r?\n\\s*){2,}");
+    // 匹配句子：中文或英文结束标点
+    private static final Pattern SENTENCE_PATTERN = Pattern.compile("([^。！？.!?]+[。！？.!?]?)");
 
     @Override
     public String getStrategyName() {
@@ -58,139 +65,132 @@ public class ParagraphChunkingStrategy extends AbstractChunkingStrategy {
     @Override
     protected List<Chunk> doChunk(String content, String docId, String docName, ChunkingOptions options) {
         List<Chunk> chunks = new ArrayList<>();
-
-        // 按段落分割
-        String[] paragraphs = content.split("\n\s*\n|\r\n\s*\r\n");
-
-        int position = 0;
+        if (content == null || content.isEmpty()) return chunks;
+        int lastMatchEnd = 0;
         int chunkIndex = 0;
-        StringBuilder currentChunk = new StringBuilder();
-        int currentChunkStart = 0;
+        StringBuilder currentBuffer = new StringBuilder();
+        int bufferStartOffset = 0;
 
-        for (String paragraph : paragraphs) {
-            String trimmedParagraph = paragraph.trim();
-            if (trimmedParagraph.isEmpty()) {
-                position += paragraph.length() + 2; // 跳过换行
-                continue;
+        Matcher matcher = PARAGRAPH_PATTERN.matcher(content);
+        while (true) {
+            String paragraph;
+            int paraStart, paraEnd;
+            boolean isLast = !matcher.find();
+
+            if (isLast) {
+                paragraph = content.substring(lastMatchEnd);
+                paraStart = lastMatchEnd;
+                paraEnd = content.length();
+            } else {
+                paragraph = content.substring(lastMatchEnd, matcher.start());
+                paraStart = lastMatchEnd;
+                paraEnd = matcher.start();
+                lastMatchEnd = matcher.end(); // 指向下一个段落的开始
             }
 
-            int paraLength = trimmedParagraph.length();
-
-            // 如果当前段落本身就超过最大大小，需要拆分
-            if (paraLength > options.getMaxChunkSize()) {
-                // 先保存当前累积的内容
-                if (currentChunk.length() > 0) {
-                    saveChunk(chunks, currentChunk.toString(), docId, docName,
-                        currentChunkStart, position, chunkIndex++, options);
-                    currentChunk = new StringBuilder();
-                }
-
-                // 拆分这个大段落
-                List<String> subParagraphs = splitLargeParagraph(trimmedParagraph, options);
-                int subOffset = position;
-                for (String sub : subParagraphs) {
-                    saveChunk(chunks, sub, docId, docName,
-                        subOffset, subOffset + sub.length(), chunkIndex++, options);
-                    subOffset += sub.length();
-                }
-            }
-            // 如果加入当前段落后会超过目标大小，先保存当前分块
-            else if (currentChunk.length() + paraLength > options.getTargetChunkSize()
-                    && currentChunk.length() >= options.getMinChunkSize()) {
-                saveChunk(chunks, currentChunk.toString(), docId, docName,
-                    currentChunkStart, position, chunkIndex++, options);
-
-                currentChunk = new StringBuilder(trimmedParagraph);
-                currentChunkStart = position;
-            }
-            // 否则累积到当前分块
-            else {
-                if (currentChunk.length() > 0) {
-                    currentChunk.append("\n\n");
+            if (!paragraph.trim().isEmpty()) {
+                // 如果单段过大，需深层切分
+                if (paragraph.length() > options.getMaxChunkSize()) {
+                    // 先清空缓冲区
+                    if (!currentBuffer.isEmpty()) {
+                        saveChunk(chunks, currentBuffer.toString(), docId, docName, bufferStartOffset, paraStart, chunkIndex++, options);
+                        currentBuffer.setLength(0);
+                    }
+                    // 处理大段落
+                    chunkIndex = handleLargeParagraph(chunks, paragraph, paraStart, docId, docName, chunkIndex, options);
+                    bufferStartOffset = paraEnd;
                 } else {
-                    currentChunkStart = position;
+                    // 检查合并后是否超过目标大小
+                    int potentialSize = currentBuffer.length() + (!currentBuffer.isEmpty() ? 2 : 0) + paragraph.length();
+
+                    if (potentialSize > options.getTargetChunkSize() && currentBuffer.length() >= options.getMinChunkSize()) {
+                        saveChunk(chunks, currentBuffer.toString(), docId, docName, bufferStartOffset, paraStart, chunkIndex++, options);
+                        currentBuffer.setLength(0);
+                        bufferStartOffset = paraStart;
+                    }
+                    if (!currentBuffer.isEmpty()) currentBuffer.append("\n\n");
+                    else bufferStartOffset = paraStart;
+
+                    currentBuffer.append(paragraph);
                 }
-                currentChunk.append(trimmedParagraph);
             }
-
-            position += paragraph.length() + 2;
+            if (isLast) break;
         }
-
-        // 保存最后一个分块
-        if (currentChunk.length() > 0) {
-            saveChunk(chunks, currentChunk.toString(), docId, docName,
-                currentChunkStart, position, chunkIndex, options);
+        // 剩余内容
+        if (!currentBuffer.isEmpty()) {
+            saveChunk(chunks, currentBuffer.toString(), docId, docName, bufferStartOffset, content.length(), chunkIndex, options);
         }
-
-        log.debug("[{}] 生成了 {} 个段落分块", STRATEGY_NAME, chunks.size());
         return chunks;
     }
 
     /**
-     * 拆分过大的段落
+     * 递归/深层切分超大段落
      */
-    private List<String> splitLargeParagraph(String paragraph, ChunkingOptions options) {
-        List<String> parts = new ArrayList<>();
+    private int handleLargeParagraph(List<Chunk> chunks, String paragraph, int offsetBase, String docId, String docName, int index, ChunkingOptions options) {
+        Matcher matcher = SENTENCE_PATTERN.matcher(paragraph);
+        StringBuilder sentenceBuffer = new StringBuilder();
+        int sentenceStartInPara = 0;
+        int currentIdx = index;
 
-        // 先尝试按句子分割
-        String[] sentences = paragraph.split("(?<=[。！？.!?])\\s*");
+        while (matcher.find()) {
+            String sentence = matcher.group();
+            int sentStart = matcher.start();
 
-        StringBuilder currentPart = new StringBuilder();
-        for (String sentence : sentences) {
-            String trimmed = sentence.trim();
-            if (trimmed.isEmpty()) continue;
-
-            if (currentPart.length() + trimmed.length() > options.getTargetChunkSize()
-                    && currentPart.length() >= options.getMinChunkSize()) {
-                parts.add(currentPart.toString().trim());
-                currentPart = new StringBuilder(trimmed);
-            } else {
-                if (currentPart.length() > 0) {
-                    currentPart.append(" ");
+            // 如果句子本身就超过 MaxSize，直接强切字符
+            if (sentence.length() > options.getMaxChunkSize()) {
+                if (!sentenceBuffer.isEmpty()) {
+                    saveChunk(chunks, sentenceBuffer.toString(), docId, docName, offsetBase + sentenceStartInPara, offsetBase + sentStart, currentIdx++, options);
+                    sentenceBuffer.setLength(0);
                 }
-                currentPart.append(trimmed);
+                currentIdx = forceSplitString(chunks, sentence, offsetBase + sentStart, docId, docName, currentIdx, options);
+                sentenceStartInPara = matcher.end();
+            }
+            else if (sentenceBuffer.length() + sentence.length() > options.getTargetChunkSize()) {
+                saveChunk(chunks, sentenceBuffer.toString(), docId, docName, offsetBase + sentenceStartInPara, offsetBase + sentStart, currentIdx++, options);
+                sentenceBuffer = new StringBuilder(sentence);
+                sentenceStartInPara = sentStart;
+            } else {
+                sentenceBuffer.append(sentence);
             }
         }
 
-        if (currentPart.length() > 0) {
-            parts.add(currentPart.toString().trim());
+        if (!sentenceBuffer.isEmpty()) {
+            saveChunk(chunks, sentenceBuffer.toString(), docId, docName, offsetBase + sentenceStartInPara, offsetBase + paragraph.length(), currentIdx++, options);
         }
-
-        // 如果按句子分割后还是有部分太大，强制按字符切分
-        List<String> finalParts = new ArrayList<>();
-        for (String part : parts) {
-            if (part.length() > options.getMaxChunkSize()) {
-                for (int i = 0; i < part.length(); i += options.getTargetChunkSize()) {
-                    int end = Math.min(i + options.getTargetChunkSize(), part.length());
-                    finalParts.add(part.substring(i, end));
-                }
-            } else {
-                finalParts.add(part);
-            }
-        }
-
-        return finalParts;
+        return currentIdx;
     }
 
-    private void saveChunk(List<Chunk> chunks, String content, String docId, String docName,
-                          int startOffset, int endOffset, int index, ChunkingOptions options) {
-        if (content.trim().isEmpty()) return;
+    /**
+     * 终极兜底：按字符数强切
+     */
+    private int forceSplitString(List<Chunk> chunks, String text, int offsetBase, String docId, String docName, int index, ChunkingOptions options) {
+        int start = 0;
+        int currentIdx = index;
+        while (start < text.length()) {
+            int end = Math.min(start + options.getTargetChunkSize(), text.length());
+            // 简单处理：避免在切分处出现 Unicode 高低代理对 (Optional)
+            if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) {
+                end--;
+            }
+            saveChunk(chunks, text.substring(start, end), docId, docName, offsetBase + start, offsetBase + end, currentIdx++, options);
+            start = end;
+        }
+        return currentIdx;
+    }
 
-        Chunk chunk = Chunk.builder()
-            .chunkIndex(index)
-            .content(content.trim())
-            .contentLength(content.trim().length())
-            .documentId(docId)
-            .documentName(docName)
-            .startOffset(startOffset)
-            .endOffset(endOffset)
-            .chunkType(detectChunkType(content))
-            .startsWithCompleteSentence(isCompleteSentenceStart(content))
-            .endsWithCompleteSentence(isCompleteSentenceEnd(content))
-            .crossesParagraphBoundary(content.contains("\n\n"))
-            .chunkingStrategy(STRATEGY_NAME)
-            .build();
+    private void saveChunk(List<Chunk> chunks, String content, String docId, String docName, int start, int end, int index, ChunkingOptions options) {
+        String trimmed = content.trim();
+        if (trimmed.isEmpty()) return;
 
-        chunks.add(chunk);
+        chunks.add(Chunk.builder()
+                .chunkIndex(index)
+                .content(trimmed)
+                .contentLength(trimmed.length())
+                .documentId(docId)
+                .documentName(docName)
+                .startOffset(start)
+                .endOffset(end)
+                .chunkingStrategy("PRO_PARAGRAPH_V1")
+                .build());
     }
 }
