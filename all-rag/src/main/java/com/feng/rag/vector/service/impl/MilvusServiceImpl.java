@@ -23,11 +23,10 @@ import io.milvus.v2.common.IndexParam;
 import io.milvus.v2.service.collection.CollectionInfo;
 import io.milvus.v2.service.collection.request.*;
 import io.milvus.v2.service.collection.response.ListCollectionsResp;
-import io.milvus.v2.service.vector.request.InsertReq;
-import io.milvus.v2.service.vector.request.QueryReq;
-import io.milvus.v2.service.vector.request.SearchReq;
+import io.milvus.v2.service.vector.request.*;
 import io.milvus.v2.service.vector.request.data.EmbeddedText;
 import io.milvus.v2.service.vector.request.data.FloatVec;
+import io.milvus.v2.service.vector.request.ranker.RRFRanker;
 import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -328,7 +327,6 @@ public class MilvusServiceImpl implements VectorService {
                     row.addProperty("org_id", org_id);
                     dataList.add(row);
                 }
-
                 // 4.3 插入 Milvus
                 InsertReq insertReq = InsertReq.builder()
                     .collectionName(collectionName)
@@ -338,7 +336,6 @@ public class MilvusServiceImpl implements VectorService {
                 totalInserted += dataList.size();
                 log.info("[tackleFile] 第 {} 批插入成功，数量: {}", (i / batchSize) + 1, dataList.size());
             }
-
             long duration = System.currentTimeMillis() - startTime;
             log.info("[tackleFile] 文件处理完成，插入 {} 条记录，耗时 {} ms", totalInserted, duration);
             Map<String, Object> resultMap = new HashMap<>();
@@ -368,9 +365,73 @@ public class MilvusServiceImpl implements VectorService {
     }
 
     /**
+     * 混合检索
+     */
+    @Override
+    public SearchResp hybridSearch(String query, Integer topK, String orgId, String collection) {
+        String collectionName = (collection != null && !collection.isEmpty())
+                ? collection
+                : properties.getCollection().getName();
+        int limit = (topK != null && topK > 0) ? topK : 10;
+        String targetOrgId = (orgId != null && !orgId.isEmpty()) ? orgId : "default";
+        log.info("[sparseSearch] 开始混合检索: query={}, topK={}, collection={}",
+                query.substring(0, Math.min(query.length(), 50)), limit, collectionName);
+        try {
+            // 执行 Milvus 混合检索
+            return executeHybridSearch(query, limit, targetOrgId, collectionName);
+        } catch (Exception e) {
+            log.error("[sparseSearch] 混合检索失败", e);
+            throw new MilvusException("SPARSE_SEARCH", "混合检索失败: " + e.getMessage(), e);
+        }
+    }
+    private SearchResp executeHybridSearch(String query, int limit, String targetOrgId, String collectionName) {
+        // 1. 得到用户query的Embedding
+        EmbeddingResponse response = modelFactory.getModel(SiliconfowModel.SILICONFLOW).embedding(List.of(query));
+        List<Float> embedding = response.getData().getFirst().getEmbedding();
+        // 2. 向量检索
+        AnnSearchReq denseReq = AnnSearchReq.builder()
+                .vectorFieldName("vector")
+                .vectors(Collections.singletonList(new FloatVec(embedding)))
+                .params("{\"nprobe\": " + 50 + "}")
+                .topK(limit)
+                .build();
+        // 3. 稀疏检索
+        AnnSearchReq sparseReq = AnnSearchReq.builder()
+                .vectorFieldName("sparse_vector")
+                .vectors(Collections.singletonList(new EmbeddedText(query)))
+                .params("{\"drop_ratio_search\": " +  0.3 + "}")
+                .topK(limit)
+                .build();
+        // 4.融合
+        CreateCollectionReq.Function rerank = CreateCollectionReq.Function.builder()
+                .name("rrf")
+                .functionType(FunctionType.RERANK)
+                .param("reranker", "rrf")
+                .param("k", "100")
+                .build();
+        HybridSearchReq hybridReq = HybridSearchReq.builder()
+                .collectionName(collectionName)
+                .searchRequests(List.of(denseReq, sparseReq))
+                // .ranker(rerank) // 这个不推荐了
+                .functionScore(FunctionScore.builder()
+                        .addFunction(rerank)
+                        .build())
+                .topK(limit)
+                .consistencyLevel(ConsistencyLevel.EVENTUALLY)
+                .outFields(List.of(properties.getCollection().getIdField(),
+                        "chunk_index",
+                        "org_id",
+                        properties.getCollection().getContentField(),
+                        properties.getCollection().getMetadataField()
+                ))
+                .build();
+        // 5. 执行
+        return milvusClient.hybridSearch(hybridReq);
+    }
+
+    /**
      * 稀疏检索（基于关键词匹配）
      * 使用 Milvus 的 query 接口配合 like 表达式进行关键词匹配
-     *
      * @param query      查询文本
      * @param topK       返回结果数量
      * @param orgId      组织ID（多租户隔离）
@@ -387,13 +448,12 @@ public class MilvusServiceImpl implements VectorService {
         log.info("[sparseSearch] 开始稀疏检索: query={}, topK={}, collection={}",
                 query.substring(0, Math.min(query.length(), 50)), limit, collectionName);
         try {
-            // 执行 Milvus 向量搜索
+            // 执行 Milvus 稀疏检索
             return executeSparseSearch(query, limit, targetOrgId, collectionName);
         } catch (Exception e) {
-            log.error("[sparseSearch] 向量检索失败", e);
-            throw new MilvusException("SPARSE_SEARCH", "向量检索失败: " + e.getMessage(), e);
+            log.error("[sparseSearch] 稀疏检索失败", e);
+            throw new MilvusException("SPARSE_SEARCH", "稀疏检索失败: " + e.getMessage(), e);
         }
-
     }
     private SearchResp executeSparseSearch(String query, int limit, String targetOrgId, String collectionName) {
         Map<String, Object> params = new HashMap<>();
@@ -419,7 +479,6 @@ public class MilvusServiceImpl implements VectorService {
 
     /**
      * 向量检索
-     *
      * @param query      查询文本
      * @param topK       返回结果数量
      * @param orgId      组织ID（多租户隔离）

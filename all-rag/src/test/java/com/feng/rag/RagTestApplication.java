@@ -60,7 +60,7 @@ public class RagTestApplication {
     @Test
     public void testVectorRetrieve() {
         // SearchResp searchResp = retrievalService.vectorRetrieve("那他的KRaft模式是什么？");
-        SearchResp searchResp = retrievalService.vectorRetrieve("我想查询订单的状态，我的订单号是：12345678910");
+        SearchResp searchResp = retrievalService.vectorRetrieve("那他的KRaft模式是什么？");
         List<List<SearchResp.SearchResult>> results = searchResp.getSearchResults();
         for (List<SearchResp.SearchResult> res : results) {
             for (int i = 0; i < res.size(); i++) {
@@ -76,7 +76,23 @@ public class RagTestApplication {
     // 单纯稀疏检索测试
     @Test
     public void testSparseRetrieve() {
-        SearchResp searchResp = retrievalService.sparseRetrieve("我想查询订单的状态，我的订单号是：12345678910");
+        SearchResp searchResp = retrievalService.sparseRetrieve("那他的KRaft模式是什么？");
+        List<List<SearchResp.SearchResult>> results = searchResp.getSearchResults();
+        for (List<SearchResp.SearchResult> res : results) {
+            for (int i = 0; i < res.size(); i++) {
+                SearchResp.SearchResult r = res.get(i);
+                System.out.println("Top-" + (i + 1) + " score=" + r.getScore() + ", id=" + r.getId());
+                Object text = r.getEntity() == null ? null : r.getEntity();
+                System.out.println(text);
+                System.out.println("=========");
+            }
+        }
+    }
+
+    // 混合检索测试
+    @Test
+    public void testHybridRetrieve() {
+        SearchResp searchResp = retrievalService.hybridRetrieve("那他的KRaft模式是什么？");
         List<List<SearchResp.SearchResult>> results = searchResp.getSearchResults();
         for (List<SearchResp.SearchResult> res : results) {
             for (int i = 0; i < res.size(); i++) {

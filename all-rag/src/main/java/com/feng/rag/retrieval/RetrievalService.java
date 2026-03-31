@@ -39,7 +39,7 @@ public class RetrievalService {
         this.milvusService = milvusService;
     }
 
-
+    //==============================================单纯的向量检索
     /**
      * 单纯的向量检索
      *
@@ -76,14 +76,13 @@ public class RetrievalService {
     }
     /**
      * 单纯的向量检索（使用默认参数）
-     *
-     * @param userQuery 用户查询
-     * @return 搜索结果列表
      */
     public SearchResp vectorRetrieve(String userQuery) {
         return vectorRetrieve(userQuery, 10, "org_id123456"); // TODO 这里先写死
     }
 
+
+    //==============================================单纯的稀疏检索
     /**
      * 单纯的稀疏检索
      *
@@ -118,15 +117,42 @@ public class RetrievalService {
         // 4. 返回结果
         return searchResp;
     }
-
     /**
      * 单纯的稀疏检索（使用默认参数）
-     *
-     * @param userQuery 用户查询
-     * @return 搜索结果列表
      */
     public SearchResp sparseRetrieve(String userQuery) {
         return sparseRetrieve(userQuery, 10, "org_id123456"); // TODO 这里先写死
     }
 
+
+    //============================================== 混合检索
+    public SearchResp hybridRetrieve(String userQuery, Integer topK, String orgId) {
+        log.info("[RetrievalService] 开始混合检索: query={}, topK={}, orgId={}",
+                userQuery.substring(0, Math.min(userQuery.length(), 50)), topK, orgId);
+        // 1. 用户输入的意图识别与重写
+        ProcessedQuery processed = userInputProcessor.process(userQuery);
+        // 如果不需要检索（闲聊或敏感词），直接返回空
+        if (!processed.needsRetrieval()) {
+            log.info("[RetrievalService] 无需检索，直接返回: intent={}", processed.getIntent());
+            return null;
+        }
+        // 使用重写后的查询进行检索
+        String queryToSearch = processed.getRewrittenQuery() != null
+                ? processed.getRewrittenQuery()
+                : userQuery;
+        // 2. 执行混合检索
+        SearchResp searchResp = milvusService.hybridSearch(
+                queryToSearch,
+                topK != null ? topK : 10,
+                orgId != null ? orgId : "default",
+                null  // 使用默认集合
+        );
+        // 3. 打印输出显示
+        log.info("[RetrievalService] 混合检索完成");
+        // 4. 返回结果
+        return searchResp;
+    }
+    public SearchResp hybridRetrieve(String userQuery) {
+        return hybridRetrieve(userQuery, 10, "org_id123456"); // TODO 这里先写死
+    }
 }

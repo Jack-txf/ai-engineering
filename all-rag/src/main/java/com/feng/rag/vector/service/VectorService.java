@@ -54,7 +54,6 @@ public interface VectorService {
     // ==================== 向量检索 ====================
     /**
      * 向量检索
-     *
      * @param query      查询文本
      * @param topK       返回结果数量
      * @param orgId      组织ID（多租户隔离）
@@ -66,7 +65,6 @@ public interface VectorService {
     // ==================== 稀疏检索 ====================
     /**
      * 稀疏检索（基于关键词匹配）
-     *
      * @param query      查询文本
      * @param topK       返回结果数量
      * @param orgId      组织ID（多租户隔离）
@@ -76,6 +74,15 @@ public interface VectorService {
     SearchResp sparseSearch(String query, Integer topK, String orgId, String collection);
 
     // ==================== 混合检索 ====================
+    /**
+     * 混合检索（基于关键词匹配）
+     * @param query      查询文本
+     * @param topK       返回结果数量
+     * @param orgId      组织ID（多租户隔离）
+     * @param collection 集合名称（可选，默认使用配置中的）
+     * @return 搜索结果列表
+     */
+    SearchResp hybridSearch(String query, Integer topK, String orgId, String collection);
 
 
 }
