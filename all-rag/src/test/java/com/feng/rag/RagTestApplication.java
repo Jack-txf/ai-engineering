@@ -8,6 +8,8 @@ import com.feng.rag.model.siliconflow.SiliconflowModel;
 import com.feng.rag.retrieval.RetrievalService;
 import com.feng.rag.retrieval.input.IntentClassifier;
 import com.feng.rag.retrieval.input.QueryRewriter;
+import com.feng.rag.utils.ConvertUtil;
+import com.feng.rag.vector.entity.SearchResult;
 import io.milvus.v2.service.vector.response.SearchResp;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
@@ -95,15 +97,10 @@ public class RagTestApplication {
     @Test
     public void testHybridRetrieve() {
         SearchResp searchResp = retrievalService.hybridRetrieve("那他的KRaft模式是什么？");
-        List<List<SearchResp.SearchResult>> results = searchResp.getSearchResults();
-        for (List<SearchResp.SearchResult> res : results) {
-            for (int i = 0; i < res.size(); i++) {
-                SearchResp.SearchResult r = res.get(i);
-                System.out.println("Top-" + (i + 1) + " score=" + r.getScore() + ", id=" + r.getId());
-                Object text = r.getEntity() == null ? null : r.getEntity();
-                System.out.println(text);
-                System.out.println("=========");
-            }
+        List<SearchResult> results = ConvertUtil.convertToSearchResults(searchResp);
+        for (SearchResult r : results) {
+            System.out.println(r);
+            System.out.println("=========");
         }
     }
 
@@ -114,5 +111,12 @@ public class RagTestApplication {
         AbstractModel model = modelFactory.getModel(SiliconflowModel.SILICONFLOW);
         RerankResponse rerankResponse = model.rerank(query, List.of("烂苹果", "红苹果", "香蕉", "橘子", "小苹果", "好吃的苹果", "大苹果"), 3);
         System.out.println(rerankResponse);
+    }
+
+    // rag完整流程测试
+    @Test
+    public void testRag() {
+        String query = "那他的KRaft模式是什么？";
+        retrievalService.ragAnswerStream( query, 0, "qqweqwewq");
     }
 }

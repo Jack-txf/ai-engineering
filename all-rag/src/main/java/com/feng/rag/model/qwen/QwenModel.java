@@ -5,6 +5,7 @@ import com.feng.rag.model.AbstractModel;
 import com.feng.rag.model.config.GlobalModelProperties;
 import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.rerank.RerankResponse;
+import com.feng.rag.vector.entity.SearchResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class QwenModel extends AbstractModel {
     }
 
     @Override
-    public SseEmitter chatStream(List<Message> messages) {
+    public SseEmitter chatStream(List<Message> messages,  List<SearchResult> retrievalResults, Integer think, String sessionId) {
         return null;
     }
 

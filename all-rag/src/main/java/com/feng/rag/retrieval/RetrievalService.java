@@ -9,6 +9,8 @@ import com.feng.rag.model.siliconflow.SiliconflowModel;
 import com.feng.rag.retrieval.input.UserInputProcessor;
 import com.feng.rag.retrieval.obj.DialogueTurn;
 import com.feng.rag.retrieval.obj.ProcessedQuery;
+import com.feng.rag.utils.ConvertUtil;
+import com.feng.rag.vector.entity.SearchResult;
 import com.feng.rag.vector.service.VectorService;
 import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.extern.slf4j.Slf4j;
@@ -220,8 +222,9 @@ public class RetrievalService {
             log.warn("[RetrievalService] 未检索到相关文档");
             return R.ok().add("answer", "抱歉，未找到与您问题相关的资料，请尝试其他问题。");
         }
+        List<SearchResult> results = ConvertUtil.convertToSearchResults(searchResp);
         // 3. 提取文档内容
-        List<String> documents = extractDocumentsFromSearchResp(searchResp);
+        List<String> documents = extractDocumentsFromSearchResp(results);
         AbstractModel model = modelFactory.getModel(SiliconflowModel.SILICONFLOW);
         log.info("[RetrievalService] 检索到 {} 个文档，开始重排...", documents.size());
         // 4. 执行重排
@@ -259,89 +262,58 @@ public class RetrievalService {
      * 完整的RAG流程（流式输出）
      *
      * @param userQuery 用户查询
-     * @param topK      检索结果数量
-     * @param topN      重排后取前N个
-     * @param orgId     组织ID
      * @param sessionId 会话ID
      * @return SSE流
      */
-    public SseEmitter ragAnswerStream(String userQuery, Integer topK, Integer topN, String orgId, String sessionId) {
-        log.info("[RetrievalService] 开始流式RAG流程: query={}",
-                userQuery.substring(0, Math.min(userQuery.length(), 50)));
-
-        SseEmitter emitter = new SseEmitter(0L);
-        // 在后台线程执行检索和生成
-        new Thread(() -> {
-            try {
-                // 1. 用户输入处理
-                ProcessedQuery processed = userInputProcessor.process(userQuery);
-                if (!processed.needsRetrieval()) {
-                    emitter.send(SseEmitter.event()
-                            .name("message")
-                            .data("我是AI助手，请问有什么可以帮助您的？"));
-                    emitter.complete();
-                    return;
+    public SseEmitter ragAnswerStream(String userQuery, Integer think, String sessionId) {
+        log.info("[RetrievalService] 开始流式RAG流程: query={}", userQuery.substring(0, Math.min(userQuery.length(), 50)));
+        return ragChatTask(userQuery, think, sessionId);
+    }
+    private SseEmitter ragChatTask(String userQuery, Integer think, String sessionId) {
+        // 1. 用户输入处理（意图识别 + 查询重写）
+        ProcessedQuery processed = userInputProcessor.process(userQuery);
+        String queryToSearch = processed.getRewrittenQuery() != null
+                ? processed.getRewrittenQuery()
+                : userQuery;
+        // 2. 执行混合检索
+        SearchResp searchResp = milvusService.hybridSearch(
+                queryToSearch,
+                20,
+                "org_id123456", // TODO 这里先写死
+                null
+        );
+        List<SearchResult> retrievalResults = ConvertUtil.convertToSearchResults(searchResp);
+        // 检索到了文档, 3. 重排
+        List<String> rankedDocuments = null;
+        if (searchResp != null && searchResp.getSearchResults() != null && !searchResp.getSearchResults().isEmpty()) {
+            // 3.1 提取文档内容
+            List<String> documents = extractDocumentsFromSearchResp(retrievalResults);
+            AbstractModel model = modelFactory.getModel(SiliconflowModel.SILICONFLOW);
+            log.info("[RetrievalService] 检索到 {} 个文档，开始重排...", documents.size());
+            // 3.2 执行重排
+            RerankResponse rerankResp = model.rerank(queryToSearch, documents, 10);
+            if (rerankResp == null || !rerankResp.isSuccess() || rerankResp.getResults() == null) {
+                log.warn("[RetrievalService] 重排失败或未实现，使用原始检索结果");
+                retrievalResults = retrievalResults.subList(0, Math.min(retrievalResults.size(), 5));
+            } else {
+                List<SearchResult> newRetrievalResults = new ArrayList<>();
+                for (RerankResult result : rerankResp.getResults()) {
+                    newRetrievalResults.add(retrievalResults.get(result.getIndex()));
                 }
-                String queryToSearch = processed.getRewrittenQuery() != null
-                        ? processed.getRewrittenQuery()
-                        : userQuery;
-
-                // 2. 执行混合检索
-                SearchResp searchResp = milvusService.hybridSearch(
-                        queryToSearch,
-                        topK != null ? topK : 10,
-                        orgId != null ? orgId : "default",
-                        null
-                );
-
-                if (searchResp == null || searchResp.getSearchResults() == null || searchResp.getSearchResults().isEmpty()) {
-                    emitter.send(SseEmitter.event()
-                            .name("message")
-                            .data("抱歉，未找到与您问题相关的资料，请尝试其他问题。"));
-                    emitter.complete();
-                    return;
-                }
-                // 3. 提取并重排文档
-                List<String> documents = extractDocumentsFromSearchResp(searchResp);
-                AbstractModel model = modelFactory.getModel("siliconflow");
-                RerankResponse rerankResp = model.rerank(queryToSearch, documents, topN);
-
-                List<String> rankedDocuments;
-                if (rerankResp == null || !rerankResp.isSuccess() || rerankResp.getResults() == null) {
-                    rankedDocuments = documents.stream().limit(topN != null ? topN : 5).collect(Collectors.toList());
-                } else {
-                    rankedDocuments = rerankResp.getResults().stream()
-                            .sorted((a, b) -> Double.compare(b.getRelevanceScore(), a.getRelevanceScore()))
-                            .map(RerankResult::getDocument)
-                            .filter(doc -> doc != null && !doc.isEmpty())
-                            .collect(Collectors.toList());
-                }
-
-                // 4. 构建提示词
-                String context = String.join("\n\n---\n\n", rankedDocuments);
-                String systemPrompt = String.format(RAG_SYSTEM_PROMPT, context);
-
-                List<AbstractModel.Message> messages = List.of(
-                        new AbstractModel.Message("system", systemPrompt),
-                        new AbstractModel.Message("user", userQuery)
-                );
-                // 5. 流式生成回答
-                SseEmitter modelEmitter = model.chatStream(messages);
-                // 转发模型流式输出
-                // 注意：这里简化处理，实际应该转发modelEmitter的事件
-                emitter.send(SseEmitter.event().name("message").data("正在生成回答..."));
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("[RetrievalService] 流式RAG流程出错", e);
-                try {
-                    emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
-                } catch (Exception ex) {
-                    // ignore
-                }
-                emitter.completeWithError(e);
+                retrievalResults = newRetrievalResults;
             }
-        }).start();
-        return emitter;
+        }
+        rankedDocuments = retrievalResults.stream().map(SearchResult::getContent).toList();
+        // 4. 构建RAG提示词
+        String context = String.join("\n\n---\n\n", rankedDocuments);
+        String systemPrompt = String.format(RAG_SYSTEM_PROMPT, context);
+        // 5. 调用模型生成回答
+        List<AbstractModel.Message> messages = List.of(
+                new AbstractModel.Message("system", systemPrompt),
+                new AbstractModel.Message("user", userQuery)
+        );
+        log.info("[RetrievalService] 调用模型生成回答...");
+        return modelFactory.getModel(SiliconflowModel.SILICONFLOW).chatStream(messages, retrievalResults, think, sessionId);
     }
 
     /**
@@ -352,24 +324,13 @@ public class RetrievalService {
     }
 
     //============================================== 工具方法 =========================================
-
     /**
      * 从SearchResp中提取文档内容
      */
-    private List<String> extractDocumentsFromSearchResp(SearchResp searchResp) {
-        List<String> documents = new ArrayList<>();
-        if (searchResp == null || searchResp.getSearchResults() == null) {
-            return documents;
-        }
-        for (List<SearchResp.SearchResult> results : searchResp.getSearchResults()) {
-            for (SearchResp.SearchResult result : results) {
-                // 从entity中提取content字段
-                if (result.getEntity() != null && result.getEntity().get("content") != null) {
-                    documents.add(result.getEntity().get("content").toString());
-                }
-            }
-        }
-        return documents;
+    private List<String> extractDocumentsFromSearchResp(List<SearchResult> retrievalResults) {
+        return retrievalResults.stream()
+                .map(SearchResult::getContent)
+                .toList();
     }
 
     /**

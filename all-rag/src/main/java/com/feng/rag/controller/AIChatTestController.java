@@ -34,6 +34,6 @@ public class AIChatTestController {
     @GetMapping( path = "/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(@RequestParam("message") String message) {
         return modelFactory.getModel(SiliconflowModel.SILICONFLOW)
-                .chatStream(List.of(new AbstractModel.Message("user", message)));
+                .chatStream(List.of(new AbstractModel.Message("user", message)), null, 0, "qweqe");
     }
 }

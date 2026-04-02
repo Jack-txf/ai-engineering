@@ -3,6 +3,7 @@ package com.feng.rag.model;
 import com.feng.rag.controller.R;
 import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.rerank.RerankResponse;
+import com.feng.rag.vector.entity.SearchResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -19,7 +20,8 @@ public abstract class AbstractModel {
     public abstract R chatSync(List<Message> messages);
 
     // 方法二-- 流式chat测试
-    public abstract SseEmitter chatStream(List<Message> messages);
+    public abstract SseEmitter chatStream(List<Message> messages, List<SearchResult> retrievalResults,
+                                          Integer think, String sessionId);
 
     public record Message(String role, String content) {
     }

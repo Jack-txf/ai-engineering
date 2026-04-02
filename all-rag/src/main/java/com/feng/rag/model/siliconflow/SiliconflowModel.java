@@ -9,6 +9,7 @@ import com.feng.rag.model.config.GlobalModelProperties;
 import com.feng.rag.model.embedding.EmbeddingResponse;
 import com.feng.rag.model.rerank.RerankResponse;
 import com.feng.rag.model.rerank.RerankResult;
+import com.feng.rag.vector.entity.SearchResult;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import okhttp3.sse.EventSource;
@@ -59,7 +60,7 @@ public class SiliconflowModel extends AbstractModel {
     @Override
     public R chatSync(List<Message> messages) {
         log.info("开始调用硅基流动[同步chat]...");
-        String json = buildBodyJson(messages, false);
+        String json = buildBodyJson(messages, false, 0);
         RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
         Request request = new Request.Builder()
                 .url(providerConfig.getBaseUrl() + CHAT_URL)
@@ -83,9 +84,9 @@ public class SiliconflowModel extends AbstractModel {
     }
 
     @Override
-    public SseEmitter chatStream(List<Message> messages) {
+    public SseEmitter chatStream(List<Message> messages,  List<SearchResult> retrievalResults, Integer think, String sessionId) {
         log.info("开始调用硅基流动[流式chat]...");
-        String json = buildBodyJson(messages, true);
+        String json = buildBodyJson(messages, true, think);
 
         RequestBody body = RequestBody.create(json, MediaType.get("application/json"));
         Request request = new Request.Builder()
@@ -99,7 +100,10 @@ public class SiliconflowModel extends AbstractModel {
         SseEmitter emitter = new SseEmitter(0L);
         factory.newEventSource(request, new StreamHandler(emitter));
         // 客户端断开连接时的处理
-        emitter.onCompletion(() -> log.info("硅基流动[流式chat]连接已关闭"));
+        emitter.onCompletion(() -> {
+            // TODO retrievalResults【最终的参考文档】 显示在界面
+            log.info("硅基流动[流式chat]连接已关闭");
+        });
         emitter.onTimeout(() -> log.warn("硅基流动[流式chat]连接超时"));
         emitter.onError(e -> log.error("硅基流动[流式chat]连接错误", e));
 
@@ -111,14 +115,13 @@ public class SiliconflowModel extends AbstractModel {
      * @param stream   是否流式
      * @return JSON 字符串
      */
-    private String buildBodyJson(List<Message> messages, boolean stream) {
+    private String buildBodyJson(List<Message> messages, boolean stream, Integer think) {
         Map<String, Object> map = new HashMap<>();
         map.put("model", providerConfig.getChatModel().getFirst());
         map.put("messages", messages);
         map.put("stream", stream);
-        map.put("enable_thinking", false); // 同步调用这里不开启思考模式
+        map.put("enable_thinking", think != null && think != 0);
         try {
-
             return objectMapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("构建JSON请求体失败", e);

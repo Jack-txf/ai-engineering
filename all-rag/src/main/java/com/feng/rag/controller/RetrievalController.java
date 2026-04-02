@@ -4,6 +4,7 @@ import com.feng.rag.retrieval.RetrievalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.UUID;
 
@@ -79,7 +80,7 @@ public class RetrievalController {
     }
 
     /**
-     * RAG问答接口（完整流程：检索+重排+生成回答）
+     * RAG问答接口（完整流程：检索+重排+生成回答）同步
      *
      * @param request 请求体（包含query、sessionId等）
      * @return AI回答
@@ -105,25 +106,23 @@ public class RetrievalController {
     }
 
     /**
-     * 简化版RAG问答（使用默认参数）
+     * RAG问答（流式）
      */
-    @PostMapping("/rag-answer-simple")
-    public R ragAnswerSimple(@RequestBody QueryRequest request) {
+    @PostMapping("/rag-answer-stream")
+    public SseEmitter ragAnswerSimple(@RequestBody QueryRequest request) {
         String sessionId = request.sessionId();
         if (sessionId == null || sessionId.isEmpty()) {
             sessionId = UUID.randomUUID().toString();
         }
-        log.info("[RetrievalController] 简化RAG问答请求: sessionId={}, query={}",
+        log.info("[RetrievalController] RAG问答（流式）: sessionId={}, query={}",
                 sessionId, request.query());
-
-        R response = retrievalService.ragAnswer(request.query());
-        return response.add("sessionId", sessionId);
+        return retrievalService.ragAnswerStream(request.query(), request.think(), request.sessionId());
     }
 
     /**
      * 请求体
      */
-    public record QueryRequest(String query, String sessionId) {
+    public record QueryRequest(String query, String sessionId, Integer think ) {
     }
 
     /**
